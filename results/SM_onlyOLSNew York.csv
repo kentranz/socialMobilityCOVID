@@ -1,0 +1,11 @@
+"Vars","Estimate","stdError","p"
+"Intercept","13258.737",1865.048,"<0.001 *"
+"driving","-70.866",60.387,"0.245"
+"walking","59.674",56.665,"0.297"
+"transit","-122.037",64.156,"0.062"
+"R2 Adjusted Training","0.796",NA,NA
+"R2 Test","0.19",NA,NA
+"RMSE Train","2230.616",NA,NA
+"RMSE Test","5958.278",NA,NA
+"RMSPE Train","Inf",NA,NA
+"RMSPE Test","2.223",NA,NA
