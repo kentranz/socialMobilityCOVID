@@ -15,6 +15,7 @@ cities <- c('New York', 'Chicago'
             , 'Los Angeles', 'Denver', 'Boston', 'Pittsburgh', 'Memphis'
             , 'Toronto', 'Montreal'
             , 'Stockholm'
+            , 'London'
             )
 
 ###################################
@@ -37,7 +38,8 @@ mobility <- apple %>%
   # ADD MEMORIAL DAY HOLIDAY
   mutate(holidayWeekend = 
            case_when(
-             !region %in% c('Toronto', 'Montreal', 'Stockholm') == T 
+             !region %in% c('Toronto', 'Montreal'
+                            , 'Stockholm', 'London') == T 
              & date %in% as.Date(c('2020-05-23', '2020-05-24', '2020-05-25'))
              ~ 1
              
@@ -64,6 +66,14 @@ mobility <- apple %>%
              ))
              ~ 1
              
+             , region %in% c('London') == T
+             & date %in% as.Date(c(
+               '2020-04-10', '2020-04-11', '2020-04-12', '2020-04-13'
+               , '2020-05-08', '2020-05-09', '2020-05-10'
+               , '2020-05-23', '2020-05-24', '2020-05-25'
+             ))
+             ~ 1
+
              , TRUE ~ 0
              
            )
@@ -87,6 +97,11 @@ data <- cityCovid %>%
          , city = str_replace_all(display_name, '-.+', '')
          , city = str_replace(city, ',.+', '')
          , city = str_replace(city, ' City', '')) %>%
+  
+  # SAME NAME BUT NOT WHAT WE WANT
+  filter(! display_name %in% c('Cleveland, MS', 'Cleveland, TN'
+                               , 'London, KY', 'Norwich-New London, CT')) %>%
+  
   filter(city %in% cities) %>%
   arrange(city, date) %>% 
   
@@ -98,15 +113,22 @@ data <- cityCovid %>%
            )
   ) %>%
   select(city, date, newCases) %>%
+  ungroup() %>%
   
-  bind_rows(montrealCovid, torontoCovid, stockholmCovid) %>%
+  bind_rows(montrealCovid, torontoCovid
+            , stockholmCovid
+            , londonCovid) %>%
+  arrange(city, date) %>% 
   
+  group_by(city) %>%
   mutate(casesTminus1 = lag(newCases)
          , casesTminus2 = lag(casesTminus1)) %>%
-  replace_na(list(newCases = 0
-                  , casesTminus1 = 0
-                  , casesTminus2 = 0)) %>%
   ungroup() %>%
+  
+  # replace_na(list(newCases = 0
+  #                 , casesTminus1 = 0
+  #                 , casesTminus2 = 0)) %>%
+ 
   
   # BRING IN APPLE DATA
   left_join(mobility

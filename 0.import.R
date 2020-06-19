@@ -20,3 +20,12 @@ stockholmCovid <- read.csv('data/stockholm.csv') %>%
   mutate(date = as.Date(Date)
          , city = 'Stockholm') %>%
   select(city, date, newCases)
+
+
+londonCovid <- read.csv('data/coronavirus-cases_latest england.csv') %>%
+  filter(Area.name  == 'London') %>%
+  rename(date = Specimen.date
+         , newCases = Daily.lab.confirmed.cases) %>%
+  mutate(date = as.Date(date)
+         , city = 'London') %>%
+  select(city, date, newCases)
