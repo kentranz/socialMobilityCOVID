@@ -1,8 +1,8 @@
 "Vars","Estimate","stdError","p"
 "Intercept","36.317",14.853,"0.019 *"
-"driving","-0.176",0.609,"0.774"
-"walking","0.129",0.593,"0.829"
-"transit","-0.17",0.434,"0.698"
+"drivingMinus7","-0.176",0.609,"0.774"
+"walkingMinus7","0.129",0.593,"0.829"
+"transitMinus7","-0.17",0.434,"0.698"
 "casesTminus1","0.285",0.152,"0.067"
 "casesTminus2","0.14",0.168,"0.41"
 "R2 Adjusted Training","0.344",NA,NA

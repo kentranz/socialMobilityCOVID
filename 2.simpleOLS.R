@@ -25,6 +25,14 @@ testAll <- data %>%
   filter(date >= as.Date('2020-05-01') & date <= as.Date('2020-05-16'))
   
 
+write.csv(trainAll
+          , file = "socialMobilityCOVID/data/trainAll.csv"
+          , row.names = F)
+write.csv(testAll
+          , file = "socialMobilityCOVID/data/testAll.csv"
+          , row.names = F)
+
+
 for (i in 1:length(unique(data$city)))
 {
   indexCity <- unique(data$city)[i]
@@ -42,8 +50,7 @@ for (i in 1:length(unique(data$city)))
   
   ################### APPLE DATA ONLY
   SM_Only <- fittedOLS('newCases'
-              , input =#'driving + walking + transit + holidayWeekend + marchBreak + casesTminus1 + casesTminus2'
-                'driving + walking + transit'
+              , input = 'drivingMinus7 + walkingMinus7 + transitMinus7'
               , fitData = train)
                        
   
@@ -77,7 +84,7 @@ for (i in 1:length(unique(data$city)))
   
   ################### FULL MODEL
   Full <- fittedOLS('newCases'
-                       , input = 'driving + walking + transit + holidayWeekend + marchBreak + casesTminus1 + casesTminus2'
+                       , input = 'drivingMinus7 + walkingMinus7 + transitMinus7 + holidayWeekend + marchBreak + casesTminus1 + casesTminus2'
                        , fitData = train)
   
   

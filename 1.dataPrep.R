@@ -40,7 +40,9 @@ mobility <- apple %>%
            case_when(
              !region %in% c('Toronto', 'Montreal'
                             , 'Stockholm', 'London') == T 
-             & date %in% as.Date(c('2020-05-23', '2020-05-24', '2020-05-25'))
+             & date %in% as.Date(c(
+               '2020-02-15', '2020-02-16', '2020-02-17'
+               , '2020-05-23', '2020-05-24', '2020-05-25'))
              ~ 1
              
               , region %in% c('Toronto') == T
@@ -134,9 +136,18 @@ data <- cityCovid %>%
   # BRING IN APPLE DATA
   left_join(mobility
             , by = c('city' = 'region', 'date' = 'dateMinus7')) %>%
+  rename(drivingMinus7 = driving
+         , walkingMinus7 = walking
+         , transitMinus7 = transit
+         ) %>%
+  
+  left_join(mobility %>% select(region, date, driving, walking, transit)
+            , by = c('city' = 'region', 'date' = 'date')) %>%
+  
   select(city, date
          , newCases, casesTminus1, casesTminus2
          , holidayWeekend, marchBreak
+         , drivingMinus7, walkingMinus7, transitMinus7
          , driving, walking, transit
          #, population
          ) %>%
