@@ -100,7 +100,8 @@ data <- cityCovid %>%
   
   # SAME NAME BUT NOT WHAT WE WANT
   filter(! display_name %in% c('Cleveland, MS', 'Cleveland, TN'
-                               , 'London, KY', 'Norwich-New London, CT')) %>%
+                               , 'London, KY', 'Norwich-New London, CT')
+         ) %>%
   
   filter(city %in% cities) %>%
   arrange(city, date) %>% 
@@ -125,9 +126,9 @@ data <- cityCovid %>%
          , casesTminus2 = lag(casesTminus1)) %>%
   ungroup() %>%
   
-  # replace_na(list(newCases = 0
-  #                 , casesTminus1 = 0
-  #                 , casesTminus2 = 0)) %>%
+  replace_na(list(newCases = 0
+                  , casesTminus1 = 0
+                  , casesTminus2 = 0)) %>%
  
   
   # BRING IN APPLE DATA
