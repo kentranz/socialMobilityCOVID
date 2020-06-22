@@ -7,13 +7,36 @@ source('socialMobilityCOVID/000.olsCoeff95CI.R')
 source('socialMobilityCOVID/1.dataPrep.R')
 
 
+
+SM_Only_Vars <- 
+  # 'drivingMinus7 + walkingMinus7 + transitMinus7'
+  # 'drivingMinus8 + walkingMinus8 + transitMinus8'
+  # 'drivingMinus9 + walkingMinus9 + transitMinus9'
+  # 'drivingMinus10 + walkingMinus10 + transitMinus10'
+  # 'drivingMinus14 + walkingMinus14 + transitMinus14'
+  # 'drivingMinus7 + walkingMinus7 + transitMinus7 + drivingMinus8 + walkingMinus8 + transitMinus8'
+  # 'drivingMinus8 + walkingMinus8 + transitMinus8 + drivingMinus9 + walkingMinus9 + transitMinus9'
+  # 'drivingMinus9 + walkingMinus9 + transitMinus9 + drivingMinus10 + walkingMinus10 + transitMinus10'
+  # 'sumDrivingMinus7_14 + sumWalkingMinus7_14 + sumTransitMinus7_14'
+
+FULL_Vars <-  
+  # 'drivingMinus7 + walkingMinus7 + transitMinus7 + anomalousWeekend + longWeekend + weekend + casesTminus1 + casesTminus2'
+  # 'drivingMinus8 + walkingMinus8 + transitMinus8 + anomalousWeekend + longWeekend + weekend + casesTminus1 + casesTminus2'
+  # 'drivingMinus9 + walkingMinus9 + transitMinus9 + anomalousWeekend + longWeekend + weekend + casesTminus1 + casesTminus2'
+  # 'drivingMinus10 + walkingMinus10 + transitMinus10 + anomalousWeekend + longWeekend + weekend + casesTminus1 + casesTminus2'
+  # 'drivingMinus14 + walkingMinus14 + transitMinus14 + anomalousWeekend + longWeekend + weekend + casesTminus1 + casesTminus2'
+  # 'drivingMinus7 + walkingMinus7 + transitMinus7 + drivingMinus8 + walkingMinus8 + transitMinus8 + anomalousWeekend + longWeekend + weekend + casesTminus1 + casesTminus2'
+  # 'drivingMinus8 + walkingMinus8 + transitMinus8 + drivingMinus9 + walkingMinus9 + transitMinus9 + anomalousWeekend + longWeekend + weekend + casesTminus1 + casesTminus2'
+  # 'drivingMinus9 + walkingMinus9 + transitMinus9 + drivingMinus10 + walkingMinus10 + transitMinus10 + anomalousWeekend + longWeekend + weekend + casesTminus1 + casesTminus2'
+  # 'sumDrivingMinus7_14 + sumWalkingMinus7_14 + sumTransitMinus7_14 + anomalousWeekend + longWeekend + weekend + casesTminus1 + casesTminus2'
 ###################################
 # Train + Test Split
 ###################################
 
 trainAll <- data %>% 
   filter(date >= as.Date('2020-02-15') 
-         &  date <= as.Date('2020-04-30'))
+  #       &  date <= as.Date('2020-04-30'))
+          & date <= as.Date('2020-05-20'))
   # group_by(city) %>%
   # mutate(t = row_number()) %>%
   # ungroup() %>%
@@ -22,8 +45,8 @@ trainAll <- data %>%
 trainAll %>% group_by(city) %>% summarize(lastday = max(date))
 
 testAll <- data %>% 
-  filter(date >= as.Date('2020-05-01') & date <= as.Date('2020-05-16'))
-  
+  #filter(date >= as.Date('2020-05-01') & date <= as.Date('2020-05-16'))
+  filter(date >= as.Date('2020-05-21') & date <= as.Date('2020-06-04'))
 
 write.csv(trainAll
           , file = "socialMobilityCOVID/data/trainAll.csv"
@@ -50,7 +73,7 @@ for (i in 1:length(unique(data$city)))
   
   ################### APPLE DATA ONLY
   SM_Only <- fittedOLS('newCases'
-              , input = 'drivingMinus7 + walkingMinus7 + transitMinus7'
+              , input = SM_Only_Vars
               , fitData = train)
                        
   
@@ -84,7 +107,7 @@ for (i in 1:length(unique(data$city)))
   
   ################### FULL MODEL
   Full <- fittedOLS('newCases'
-                       , input = 'drivingMinus7 + walkingMinus7 + transitMinus7 + holidayWeekend + marchBreak + casesTminus1 + casesTminus2'
+                       , input = FULL_Vars
                        , fitData = train)
   
   
@@ -92,7 +115,8 @@ for (i in 1:length(unique(data$city)))
   round(cor(test$newCases, predict(Full$model, newdata = test))^2, 3)
   
   Full$coeffs[nrow(Full$coeffs)+1, 'Vars'] <- 'R2 Test'
-  Full$coeffs[nrow(Full$coeffs), 'Estimate'] <- as.character(round(cor(test$newCases, predict(Full$model, newdata = test))^2, 3))
+  Full$coeffs[nrow(Full$coeffs), 'Estimate'] <- 
+    as.character(round(cor(test$newCases, predict(Full$model, newdata = test))^2, 3))
   
   Full$coeffs[nrow(Full$coeffs)+1, 'Vars'] <- 'RMSE Train'
   Full$coeffs[nrow(Full$coeffs), 'Estimate'] <- 
@@ -157,6 +181,7 @@ for (i in 1:length(unique(data$city)))
   
 }
 
+# source('socialMobilityCOVID/2.usVsOthers.R')
 
 
 

@@ -3,7 +3,8 @@
 
 apple <- read.csv('data/applemobilitytrends-2020-06-14.csv')
 cityCovid <- read.csv('data/coviddat_us.csv')
-topCity <- read.csv('data/top50USCitiesPop.csv')
+
+topCity <- read.csv('data/top50USCitiesPop.csv') 
 
 torontoCovid <- read.csv('data/TorontoCovid.csv') %>%
   mutate(date = as.Date(Episode.Date) 
