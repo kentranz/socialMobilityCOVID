@@ -11,7 +11,9 @@ cities <- c('New York', 'Chicago'
             ,'Seattle', 'Tampa'
             , 'Baltimore', 'Cleveland'
             , 'Sacramento', 'Indianapolis'
-            , 'New Orleans', 'Oklahoma' 
+            #, 'New Orleans'
+            , 'Phoenix', 'Houston'
+            , 'Oklahoma' 
             , 'Los Angeles', 'Denver', 'Boston', 'Pittsburgh', 'Memphis'
             , 'Toronto', 'Montreal'
             , 'Stockholm'
@@ -22,25 +24,15 @@ cities <- c('New York', 'Chicago'
 # PREPING DATA FOR MODEL BUIDLING
 ###################################
 # SUBSET APPLE DATA
-mobility <- apple %>% 
+apple %<>% 
   mutate(region = str_replace(region, ' City', '')) %>%
   filter(geo_type == 'city'
          & region %in% cities) %>%
-  select(region, transportation_type, starts_with('X')) %>%
-  melt(id.vars = c('region', 'transportation_type')
-  ) %>%
-  rename(date = variable) %>%
-  dcast(region + date ~ transportation_type) %>%
-  mutate(date = str_replace(date, 'X', '')
-         , date = str_replace_all(date, '\\.', '-')
-         , date = as.Date(date)
-         , dateMinus7 = date + 7) %>% # MOBILITY OF t-n days
-  
-  group_by(region) %>%
-  mutate(driving = imputeTS::na_seadec(driving, "interpolation")
-         , transit = imputeTS::na_seadec(transit, "interpolation")
-         , walking = imputeTS::na_seadec(walking, "interpolation")) %>%
-  ungroup() %>%
+  select(region, transportation_type, starts_with('X')) 
+
+source('socialMobilityCOVID/standardization.R') # REMOVE DAY OF WEEK EFFECT BY FRANCIS
+
+mobility %<>%
   
     # ADD HOLIDAY
   mutate(anomalousWeekend = 
@@ -138,7 +130,8 @@ data <- cityCovid %>%
   
   bind_rows(montrealCovid, torontoCovid
             , stockholmCovid
-            , londonCovid) %>%
+            , londonCovid
+            , additionalCases) %>%
   arrange(city, date) %>% 
   
   group_by(city) %>%
@@ -152,7 +145,9 @@ data <- cityCovid %>%
  
   
   # BRING IN APPLE DATA
-  left_join(mobility %>% select(region, dateMinus7, driving, transit, walking)
+  left_join(mobility %>% 
+              mutate(dateMinus7 = date + 7) %>%
+              select(region, dateMinus7, driving, transit, walking)
             , by = c('city' = 'region', 'date' = 'dateMinus7')) %>%
   rename(drivingMinus7 = driving
          , walkingMinus7 = walking
@@ -230,15 +225,11 @@ data <- cityCovid %>%
   left_join(topCity %>% select(-X2019.rank)
             , by = c('city' = 'City')) %>%
   
-  arrange(city, date) %>%
+  arrange(city, date) 
   
   
   
   
-  # ONLY UPTO JUN 4
-  filter(!date %in% as.Date(c(#'2020-05-18', '2020-05-19'
-                               '2020-06-05', '2020-06-06')) ) 
-
 ###################################
 # AT A GLANCE
 ###################################

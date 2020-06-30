@@ -6,37 +6,40 @@ source('socialMobilityCOVID/0.import.R')
 source('socialMobilityCOVID/000.olsCoeff95CI.R')
 source('socialMobilityCOVID/1.dataPrep.R')
 
+lag = c('7', '8', '9', '10', '14', '78', '89', '910', '714')
 
+SM_Only_Vars <- c(
+   'drivingMinus7 + walkingMinus7 + transitMinus7'
+  , 'drivingMinus8 + walkingMinus8 + transitMinus8'
+  , 'drivingMinus9 + walkingMinus9 + transitMinus9'
+  , 'drivingMinus10 + walkingMinus10 + transitMinus10'
+  , 'drivingMinus14 + walkingMinus14 + transitMinus14'
+  , 'drivingMinus7 + walkingMinus7 + transitMinus7 + drivingMinus8 + walkingMinus8 + transitMinus8'
+  , 'drivingMinus8 + walkingMinus8 + transitMinus8 + drivingMinus9 + walkingMinus9 + transitMinus9'
+  , 'drivingMinus9 + walkingMinus9 + transitMinus9 + drivingMinus10 + walkingMinus10 + transitMinus10'
+  , 'sumDrivingMinus7_14 + sumWalkingMinus7_14 + sumTransitMinus7_14'
+)
 
-SM_Only_Vars <- 
-  # 'drivingMinus7 + walkingMinus7 + transitMinus7'
-  # 'drivingMinus8 + walkingMinus8 + transitMinus8'
-  # 'drivingMinus9 + walkingMinus9 + transitMinus9'
-  # 'drivingMinus10 + walkingMinus10 + transitMinus10'
-  # 'drivingMinus14 + walkingMinus14 + transitMinus14'
-  # 'drivingMinus7 + walkingMinus7 + transitMinus7 + drivingMinus8 + walkingMinus8 + transitMinus8'
-  # 'drivingMinus8 + walkingMinus8 + transitMinus8 + drivingMinus9 + walkingMinus9 + transitMinus9'
-  # 'drivingMinus9 + walkingMinus9 + transitMinus9 + drivingMinus10 + walkingMinus10 + transitMinus10'
-  # 'sumDrivingMinus7_14 + sumWalkingMinus7_14 + sumTransitMinus7_14'
+FULL_Vars <-  c(
+   'drivingMinus7 + walkingMinus7 + transitMinus7 + anomalousWeekend + longWeekend + weekend + casesTminus1 + casesTminus2'
+  , 'drivingMinus8 + walkingMinus8 + transitMinus8 + anomalousWeekend + longWeekend + weekend + casesTminus1 + casesTminus2'
+  , 'drivingMinus9 + walkingMinus9 + transitMinus9 + anomalousWeekend + longWeekend + weekend + casesTminus1 + casesTminus2'
+  , 'drivingMinus10 + walkingMinus10 + transitMinus10 + anomalousWeekend + longWeekend + weekend + casesTminus1 + casesTminus2'
+  , 'drivingMinus14 + walkingMinus14 + transitMinus14 + anomalousWeekend + longWeekend + weekend + casesTminus1 + casesTminus2'
+  , 'drivingMinus7 + walkingMinus7 + transitMinus7 + drivingMinus8 + walkingMinus8 + transitMinus8 + anomalousWeekend + longWeekend + weekend + casesTminus1 + casesTminus2'
+  , 'drivingMinus8 + walkingMinus8 + transitMinus8 + drivingMinus9 + walkingMinus9 + transitMinus9 + anomalousWeekend + longWeekend + weekend + casesTminus1 + casesTminus2'
+  , 'drivingMinus9 + walkingMinus9 + transitMinus9 + drivingMinus10 + walkingMinus10 + transitMinus10 + anomalousWeekend + longWeekend + weekend + casesTminus1 + casesTminus2'
+  , 'sumDrivingMinus7_14 + sumWalkingMinus7_14 + sumTransitMinus7_14 + anomalousWeekend + longWeekend + weekend + casesTminus1 + casesTminus2'
+)
 
-FULL_Vars <-  
-  # 'drivingMinus7 + walkingMinus7 + transitMinus7 + anomalousWeekend + longWeekend + weekend + casesTminus1 + casesTminus2'
-  # 'drivingMinus8 + walkingMinus8 + transitMinus8 + anomalousWeekend + longWeekend + weekend + casesTminus1 + casesTminus2'
-  # 'drivingMinus9 + walkingMinus9 + transitMinus9 + anomalousWeekend + longWeekend + weekend + casesTminus1 + casesTminus2'
-  # 'drivingMinus10 + walkingMinus10 + transitMinus10 + anomalousWeekend + longWeekend + weekend + casesTminus1 + casesTminus2'
-  # 'drivingMinus14 + walkingMinus14 + transitMinus14 + anomalousWeekend + longWeekend + weekend + casesTminus1 + casesTminus2'
-  # 'drivingMinus7 + walkingMinus7 + transitMinus7 + drivingMinus8 + walkingMinus8 + transitMinus8 + anomalousWeekend + longWeekend + weekend + casesTminus1 + casesTminus2'
-  # 'drivingMinus8 + walkingMinus8 + transitMinus8 + drivingMinus9 + walkingMinus9 + transitMinus9 + anomalousWeekend + longWeekend + weekend + casesTminus1 + casesTminus2'
-  # 'drivingMinus9 + walkingMinus9 + transitMinus9 + drivingMinus10 + walkingMinus10 + transitMinus10 + anomalousWeekend + longWeekend + weekend + casesTminus1 + casesTminus2'
-  # 'sumDrivingMinus7_14 + sumWalkingMinus7_14 + sumTransitMinus7_14 + anomalousWeekend + longWeekend + weekend + casesTminus1 + casesTminus2'
 ###################################
 # Train + Test Split
 ###################################
 
 trainAll <- data %>% 
-  filter(date >= as.Date('2020-02-15') 
+  filter(date >= as.Date('2020-03-01') 
   #       &  date <= as.Date('2020-04-30'))
-          & date <= as.Date('2020-05-20'))
+          & date <= as.Date('2020-06-05'))
   # group_by(city) %>%
   # mutate(t = row_number()) %>%
   # ungroup() %>%
@@ -46,8 +49,12 @@ trainAll %>% group_by(city) %>% summarize(lastday = max(date))
 
 testAll <- data %>% 
   #filter(date >= as.Date('2020-05-01') & date <= as.Date('2020-05-16'))
-  filter(date >= as.Date('2020-05-21') & date <= as.Date('2020-06-04'))
+  filter(date >= as.Date('2020-06-06') & date <= as.Date('2020-06-20'))
 
+write.csv(all <- data %>% filter(date >= as.Date('2020-03-01') 
+                                 & date <= as.Date('2020-06-20'))
+          , file = "socialMobilityCOVID/data/all.csv"
+          , row.names = F)
 write.csv(trainAll
           , file = "socialMobilityCOVID/data/trainAll.csv"
           , row.names = F)
@@ -55,6 +62,14 @@ write.csv(testAll
           , file = "socialMobilityCOVID/data/testAll.csv"
           , row.names = F)
 
+
+
+for(j in 1:length(lag))
+{
+
+  dir.create(paste0('results/'
+                    , 'appleMobilityLag'
+             , lag[j]))
 
 for (i in 1:length(unique(data$city)))
 {
@@ -73,7 +88,7 @@ for (i in 1:length(unique(data$city)))
   
   ################### APPLE DATA ONLY
   SM_Only <- fittedOLS('newCases'
-              , input = SM_Only_Vars
+              , input = SM_Only_Vars[j]
               , fitData = train)
                        
   
@@ -98,7 +113,10 @@ for (i in 1:length(unique(data$city)))
   
   write.csv(
     SM_Only$coeffs
-    , file = paste0('results/SM_onlyOLS', indexCity, '.csv')
+    , file = paste0('results/'
+                    , 'appleMobilityLag'
+                    , lag[j]
+                    , '/SM_onlyOLS', indexCity, '.csv')
     , row.names = F
   )
   
@@ -107,7 +125,7 @@ for (i in 1:length(unique(data$city)))
   
   ################### FULL MODEL
   Full <- fittedOLS('newCases'
-                       , input = FULL_Vars
+                       , input = FULL_Vars[j]
                        , fitData = train)
   
   
@@ -133,7 +151,10 @@ for (i in 1:length(unique(data$city)))
   
   write.csv(
     Full$coeffs
-    , file = paste0('results/FullOLS', indexCity, '.csv')
+    , file = paste0('results/'
+                    , 'appleMobilityLag'
+                    , lag[j]
+                    , '/FullOLS', indexCity, '.csv')
     , row.names = F
   )
   
@@ -157,7 +178,7 @@ for (i in 1:length(unique(data$city)))
     
     melt(id = 'date') %>%
     mutate(forecast = case_when(
-      date >= as.Date('2020-05-01') & variable != 'Actual' ~ 1
+      date >= as.Date('2020-06-06') & variable != 'Actual' ~ 1
       , TRUE ~ 0)
       )
   
@@ -175,7 +196,11 @@ for (i in 1:length(unique(data$city)))
   
  
   
-  ggsave(paste0('results/',indexCity, ".png")
+  ggsave(paste0('results/'
+                , 'appleMobilityLag'
+                , lag[j]
+                ,'/'
+                , indexCity, ".png")
          , width=8, height=4)
           
   
@@ -186,3 +211,4 @@ for (i in 1:length(unique(data$city)))
 
 
 
+}
