@@ -1,0 +1,13 @@
+"Vars","Estimate","stdError","p"
+"Intercept","21.823",7.315,"0.004 *"
+"anomalousWeekend","5.538",20.364,"0.786"
+"longWeekend","-13.887",13.513,"0.307"
+"weekend","-41.871",9.341,"<0.001 *"
+"casesTminus1","0.603",0.097,"<0.001 *"
+"casesTminus2","0.342",0.098,"0.001 *"
+"R2 Adjusted Training","0.895",NA,NA
+"R2 Test","0.154",NA,NA
+"RMSE Train","37.145",NA,NA
+"RMSE Test","24.055",NA,NA
+"RMSPE Train","3.237",NA,NA
+"RMSPE Test","0.704",NA,NA
