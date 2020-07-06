@@ -9,8 +9,8 @@
 "casesTminus1","0.366",0.092,"<0.001 *"
 "casesTminus2","-0.201",0.097,"0.041 *"
 "R2 Adjusted Training","0.803",NA,NA
-"R2 Test","0.642",NA,NA
+"R2 Test","0.748",NA,NA
 "RMSE Train","36.926",NA,NA
-"RMSE Test","88.75",NA,NA
+"RMSE Test","100.86",NA,NA
 "RMSPE Train","Inf",NA,NA
-"RMSPE Test","0.535",NA,NA
+"RMSPE Test","0.549",NA,NA

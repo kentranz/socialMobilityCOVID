@@ -11,19 +11,19 @@ torontoCovid <- read.csv('data/TorontoCovid.csv') %>%
          , city = 'Toronto'
          , newCases = Case.Count) %>%
   select(city, date, newCases) %>%
-  filter(date != as.Date('2020-06-07'))
+  filter(date < as.Date('2020-06-07'))
 
 montrealCovid <- read.csv('data/MontrealCovid.csv') %>%
   mutate(date = as.Date(date)
          , city = 'Montreal') %>%
   select(city, date, newCases) %>%
-  filter(date != as.Date('2020-06-07'))
+  filter(date < as.Date('2020-06-07'))
 
 stockholmCovid <- read.csv('data/stockholm.csv') %>%
   mutate(date = as.Date(Date)
          , city = 'Stockholm') %>%
   select(city, date, newCases) %>%
-  filter(date != as.Date('2020-06-07'))
+  filter(date < as.Date('2020-06-07'))
 
 
 londonCovid <- read.csv('data/coronavirus-cases_latest england.csv') %>%
@@ -33,7 +33,7 @@ londonCovid <- read.csv('data/coronavirus-cases_latest england.csv') %>%
   mutate(date = as.Date(date)
          , city = 'London') %>%
   select(city, date, newCases) %>%
-  filter(date != as.Date('2020-06-07'))
+  filter(date < as.Date('2020-06-07'))
 
 
 additionalCases <-  read.csv('data/additionCases.csv') %>%

@@ -4,8 +4,8 @@
 "walkingMinus7","-0.022",0.96,"0.982"
 "transitMinus7","-4.527",0.746,"<0.001 *"
 "R2 Adjusted Training","0.603",NA,NA
-"R2 Test","0.001",NA,NA
+"R2 Test","0.002",NA,NA
 "RMSE Train","52.423",NA,NA
-"RMSE Test","107.104",NA,NA
+"RMSE Test","121.53",NA,NA
 "RMSPE Train","Inf",NA,NA
-"RMSPE Test","0.988",NA,NA
+"RMSPE Test","0.983",NA,NA
