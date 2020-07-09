@@ -222,7 +222,7 @@ data <- cityCovid %>%
          , sumWalkingMinus7_14 = rowSums(select(.,contains('walkingMinus')))/7
          ) %>%
   
-  left_join(topCity %>% select(-X2019.rank)
+  left_join(topCity 
             , by = c('city' = 'City')) %>%
   
   arrange(city, date) 

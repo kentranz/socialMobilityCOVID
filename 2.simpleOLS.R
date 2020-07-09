@@ -7,8 +7,9 @@ source('socialMobilityCOVID/000.olsCoeff95CI.R')
 source('socialMobilityCOVID/1.dataPrep.R')
 
 
-temp <- data %>% group_by(date) %>%
-  summarize(nCity = n())
+temp <- data %>% group_by(city) %>%
+  summarize(#nCity = n()
+            population = unique(Population))
 
 lag = c('7', '8', '9', '10', '14', '78', '89', '910', '714')
 
