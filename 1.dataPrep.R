@@ -105,6 +105,7 @@ mobility %<>%
 
 # DATA FRAME USED FOR MODEL BUILDING
 data <- cityCovid %>% 
+  
   mutate(date = as.Date(date)
          , city = str_replace_all(display_name, '-.+', '')
          , city = str_replace(city, ',.+', '')
@@ -125,6 +126,14 @@ data <- cityCovid %>%
              , TRUE ~ all_cases - lag(all_cases)
            )
   ) %>%
+  
+  # CHANGE PEAK FOR BOSTON PER FRANCIS
+  mutate(newCases = case_when(city == 'Boston'
+                               & date == as.Date('2020-05-31') ~ as.integer(360)
+                               , TRUE ~ newCases
+  )
+  ) %>%
+  
   select(city, date, newCases) %>%
   ungroup() %>%
   
