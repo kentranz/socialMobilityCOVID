@@ -7,6 +7,9 @@
 # WHICH CITIES ARE INCLUDED?
 ###################################
 
+
+
+
 cities <- c('New York', 'Chicago'
             ,'Seattle', 'Tampa'
             , 'Baltimore', 'Cleveland'
@@ -15,6 +18,7 @@ cities <- c('New York', 'Chicago'
             , 'Phoenix', 'Houston'
             , 'Oklahoma' 
             , 'Los Angeles', 'Denver', 'Boston', 'Pittsburgh', 'Memphis'
+            , 'Atlanta', 'Miami', 'Dallas', 'Portland'
             , 'Toronto', 'Montreal'
             , 'Stockholm'
             , 'London'
@@ -49,19 +53,24 @@ mobility %<>%
              & date %in% as.Date(c(
                '2020-02-15', '2020-02-16', '2020-02-17'
                , '2020-04-10', '2020-04-11', '2020-04-12', '2020-04-13'
-               , '2020-05-23', '2020-05-24', '2020-05-25'))
+               , '2020-05-23', '2020-05-24', '2020-05-25'
+               , '2020-07-03', '2020-07-04', '2020-07-05'
+               ))
              ~ 1
              
               , region %in% c('Toronto') == T
               & date %in% as.Date(c(
                         '2020-02-15', '2020-02-16', '2020-02-17'
                         , '2020-05-16', '2020-05-17', '2020-05-18' 
+                        , '2020-07-01'
                         ))
               ~ 1
              , region %in% c('Montreal') == T
              & date %in% as.Date(c(
              '2020-04-10', '2020-04-11', '2020-04-12', '2020-04-13'
              , '2020-05-16', '2020-05-17', '2020-05-18'
+             , '2020-06-24'
+             , '2020-07-01'
              ))
              ~ 1
              
@@ -70,7 +79,9 @@ mobility %<>%
                '2020-04-10', '2020-04-11', '2020-04-12', '2020-04-13'
                , '2020-05-01', '2020-05-02', '2020-05-03'
                , '2020-05-21'
-               , '2020-06-01'
+               , '2020-05-30', '2020-05-31', '2020-06-01'
+               , '2020-06-04', '2020-06-06', '2020-06-07'
+               , '2020-06-19', '2020-06-20', '2020-06-21'
              ))
              ~ 1
              
@@ -104,21 +115,7 @@ mobility %<>%
 
 
 # DATA FRAME USED FOR MODEL BUILDING
-data <- cityCovid %>% 
-  
-  mutate(date = as.Date(date)
-         , city = str_replace_all(display_name, '-.+', '')
-         , city = str_replace(city, ',.+', '')
-         , city = str_replace(city, ' City', '')) %>%
-  
-  # SAME NAME BUT NOT WHAT WE WANT
-  filter(! display_name %in% c('Cleveland, MS', 'Cleveland, TN'
-                               , 'London, KY', 'Norwich-New London, CT')
-         ) %>%
-  
-  filter(city %in% cities) %>%
-  arrange(city, date) %>% 
-  
+data <- cityCovid %>%
   group_by(city) %>%
   mutate(newCases = 
            case_when(
@@ -140,7 +137,7 @@ data <- cityCovid %>%
   bind_rows(montrealCovid, torontoCovid
             , stockholmCovid
             , londonCovid
-            , additionalCases) %>%
+            ) %>%
   arrange(city, date) %>% 
   
   group_by(city) %>%
