@@ -44,7 +44,7 @@ FULL_Vars <-  c(
 trainAll <- data %>% 
   filter(date >= as.Date('2020-03-01') 
   #       &  date <= as.Date('2020-04-30'))
-          & date <= as.Date('2020-07-16'))
+          & date <= as.Date('2020-06-15'))
   # group_by(city) %>%
   # mutate(t = row_number()) %>%
   # ungroup() %>%
@@ -54,10 +54,10 @@ trainAll %>% group_by(city) %>% summarize(lastday = max(date))
 
 testAll <- data %>% 
   #filter(date >= as.Date('2020-05-01') & date <= as.Date('2020-05-16'))
-  filter(date >= as.Date('2020-07-17') & date <= as.Date('2020-07-31'))
+  filter(date >= as.Date('2020-06-16') & date <= as.Date('2020-06-30'))
 
 write.csv(all <- data %>% filter(date >= as.Date('2020-03-01') 
-                                 & date <= as.Date('2020-07-31'))
+                                 & date <= as.Date('2020-06-30'))
           , file = "socialMobilityCOVID/data/all.csv"
           , row.names = F)
 write.csv(trainAll
