@@ -59,7 +59,7 @@ cityCovid <- read.csv('data/us-counties.csv'
 
 
 torontoCovid <- read.csv('data/TorontoCovid.csv') %>%
-  mutate(date = as.Date(Episode.Date) 
+  mutate(date = as.Date(Episode.Date, '%m/%d/%y') 
          , city = 'Toronto'
          , newCases = Case.Count) %>%
   select(city, date, newCases) 
@@ -74,7 +74,7 @@ montrealCovid <- read.csv('data/MontrealCovid.csv'
 
 
 stockholmCovid <- read.csv('data/stockholm.csv') %>%
-  mutate(date = as.Date(Date)
+  mutate(date = as.Date(Date, '%m/%d/%y')
          , city = 'Stockholm') %>%
   select(city, date, newCases)
 
@@ -89,10 +89,10 @@ londonCovid <- read.csv('data/phe_cases_london_boroughs.csv') %>%
 
 
 
-#################################
-# Apple data
-#################################
-apple <- read.csv('data/applemobilitytrends-2020-08-09.csv')
+apple <- read.csv('data/applemobilitytrends-2020-09-21.csv')
 
 
 topCity <- read.csv('data/top50USCitiesPop.csv') 
+
+
+google <- read.csv('data/Global_Mobility_Report.csv')

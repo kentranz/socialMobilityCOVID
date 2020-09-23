@@ -41,10 +41,14 @@ FULL_Vars <-  c(
 # Train + Test Split
 ###################################
 
+startDate <- '2020-03-01'
+endDate <- '2020-09-15'
+trainSplitDate <- '2020-09-01'
+
 trainAll <- data %>% 
   filter(date >= as.Date('2020-03-01') 
   #       &  date <= as.Date('2020-04-30'))
-          & date <= as.Date('2020-06-15'))
+          & date <= (as.Date(trainSplitDate)-1))
   # group_by(city) %>%
   # mutate(t = row_number()) %>%
   # ungroup() %>%
@@ -54,10 +58,10 @@ trainAll %>% group_by(city) %>% summarize(lastday = max(date))
 
 testAll <- data %>% 
   #filter(date >= as.Date('2020-05-01') & date <= as.Date('2020-05-16'))
-  filter(date >= as.Date('2020-06-16') & date <= as.Date('2020-06-30'))
+  filter(date >= as.Date(trainSplitDate) & date <= as.Date(endDate))
 
-write.csv(all <- data %>% filter(date >= as.Date('2020-03-01') 
-                                 & date <= as.Date('2020-06-30'))
+write.csv(all <- data %>% filter(date >= as.Date(startDate) 
+                                 & date <= as.Date(endDate))
           , file = "socialMobilityCOVID/data/all.csv"
           , row.names = F)
 write.csv(trainAll
@@ -183,7 +187,7 @@ for (i in 1:length(unique(data$city)))
     
     melt(id = 'date') %>%
     mutate(forecast = case_when(
-      date >= as.Date('2020-06-06') & variable != 'Actual' ~ 1
+      date >= as.Date(trainSplitDate) & variable != 'Actual' ~ 1
       , TRUE ~ 0)
       )
   

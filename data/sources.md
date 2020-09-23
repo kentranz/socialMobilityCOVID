@@ -12,13 +12,15 @@ https://santemontreal.qc.ca/en/public/coronavirus-covid-19/situation-of-the-coro
 MontrealCovid.csv
 
 https://www.toronto.ca/home/covid-19/covid-19-latest-city-of-toronto-news/covid-19-status-of-cases-in-toronto/
+Cases by Episode Date tab
 TorontoCovid.csv
 
 https://data.london.gov.uk/dataset/coronavirus--covid-19--cases
 phe_cases_london_boroughs.csv
 
 https://en.wikipedia.org/wiki/COVID-19_pandemic_in_Sweden
-
+Stockholm County column
+stockholm.csv
 
 https://www.apple.com/covid19/mobility
 apple mobility

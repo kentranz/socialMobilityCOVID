@@ -33,7 +33,7 @@ for(ind in 1:nrow(apple.city))
 {
   for(ind2 in 1:length(wk.dat2))
   {
-    if(apple.city$date[ind]%in%as.Date(wk.dat2[,ind2]))
+    if(apple.city$date[ind]%in%as.Date(wk.dat2[,ind2], '%m/%d/%y'))
       week.2[ind] <- ind2
   }
 }
