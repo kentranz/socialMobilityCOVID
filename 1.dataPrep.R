@@ -147,7 +147,7 @@ data <- cityCovid %>%
             ) %>%
   arrange(city, date) %>% 
   
-  #### ADHOC COR
+  #### ADHOC CORRECTION FOR OVER REPORTING -> NEGATIVE NEW CASES
   mutate(newCases = case_when(newCases < 0 ~ 0
                    , TRUE ~ newCases)
          ) %>%

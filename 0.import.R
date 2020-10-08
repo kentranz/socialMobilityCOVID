@@ -66,7 +66,7 @@ torontoCovid <- read.csv('socialMobilityCOVID/data/raw/TorontoCovid.csv') %>%
 
 montrealCovid <- read.csv('socialMobilityCOVID/data/raw/MontrealCovid.csv'
                           , sep = ';'
-) %>%
+                          ) %>%
   mutate(date = as.Date(Date)
          , city = 'Montreal') %>%
   rename(newCases = Nouveaux.cas) %>%
