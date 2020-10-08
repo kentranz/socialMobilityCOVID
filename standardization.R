@@ -27,7 +27,7 @@ for (i in 1:length(City))
 }
 #### Standardization
 ## Labeling each week, starting January 13
-wk.dat2 <- read.csv("data/week2.csv")
+wk.dat2 <- read.csv("socialMobilityCOVID/data/raw/week2.csv")
 week.2 <- numeric()
 for(ind in 1:nrow(apple.city))
 {

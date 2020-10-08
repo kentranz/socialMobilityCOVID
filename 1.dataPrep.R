@@ -147,6 +147,11 @@ data <- cityCovid %>%
             ) %>%
   arrange(city, date) %>% 
   
+  #### ADHOC COR
+  mutate(newCases = case_when(newCases < 0 ~ 0
+                   , TRUE ~ newCases)
+         ) %>%
+
   group_by(city) %>%
   mutate(casesTminus1 = lag(newCases)
          , casesTminus2 = lag(casesTminus1)) %>%
@@ -155,6 +160,7 @@ data <- cityCovid %>%
   replace_na(list(newCases = 0
                   , casesTminus1 = 0
                   , casesTminus2 = 0)) %>%
+  
  
   
   # BRING IN APPLE DATA
@@ -243,13 +249,23 @@ data <- cityCovid %>%
   
   
   
+
+data %>% group_by(city) %>% summarize(minDate = min(date)) %>% as.data.frame() %>% print()
+data %>% group_by(city) %>% summarize(maxDate = max(date)) %>% as.data.frame() %>% print()
+
+data %>% 
+  filter(newCases <0 | casesTminus1 < 0 | casesTminus2 < 0) %>% 
+  as.data.frame() %>%
+  select(city, date, newCases, casesTminus1, casesTminus2) %>%
+  print()
+
+
+
+
 ###################################
 # AT A GLANCE
 ###################################
 # EARLIEST APPLE DATA FOR EACH CITY
-data %>% group_by(city) %>% summarize(minDate = min(date))
-
-
 
 ggplot(data, aes(date, driving, group = city, colour = city))+
   geom_line() +

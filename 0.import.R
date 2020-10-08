@@ -30,7 +30,7 @@ UScities <- c(
 # DAILY CASES FOR EACH CBSA/MSA == SUM OF ALL FIPS COUNTY
 #################################
 
-FIPS <- read.csv('data/CBSAtoFIPS.csv'
+FIPS <- read.csv('socialMobilityCOVID/data/raw/CBSAtoFIPS.csv'
                  , colClasses=c( "FIPS.State.Code"="character"
                                , "FIPS.County.Code"="character")
                  ) %>% 
@@ -43,7 +43,7 @@ FIPS <- read.csv('data/CBSAtoFIPS.csv'
 FIPS %>% distinct(city) %>% pull() %>% length()
 
 
-cityCovid <- read.csv('data/us-counties.csv'
+cityCovid <- read.csv('socialMobilityCOVID/data/raw/us-counties.csv'
                       , colClasses=c( "fips"="character")
                       ) %>%
   filter(fips %in% FIPS$fips)  %>%
@@ -58,13 +58,13 @@ cityCovid <- read.csv('data/us-counties.csv'
 
 
 
-torontoCovid <- read.csv('data/TorontoCovid.csv') %>%
+torontoCovid <- read.csv('socialMobilityCOVID/data/raw/TorontoCovid.csv') %>%
   mutate(date = as.Date(Episode.Date, '%m/%d/%y') 
          , city = 'Toronto'
          , newCases = Case.Count) %>%
   select(city, date, newCases) 
 
-montrealCovid <- read.csv('data/MontrealCovid.csv'
+montrealCovid <- read.csv('socialMobilityCOVID/data/raw/MontrealCovid.csv'
                           , sep = ';'
 ) %>%
   mutate(date = as.Date(Date)
@@ -73,13 +73,15 @@ montrealCovid <- read.csv('data/MontrealCovid.csv'
   select(city, date, newCases)
 
 
-stockholmCovid <- read.csv('data/stockholm.csv') %>%
-  mutate(date = as.Date(Date, '%m/%d/%y')
-         , city = 'Stockholm') %>%
-  select(city, date, newCases)
+# stockholmCovid <- read.csv('data/stockholm.csv') %>%
+#   mutate(date = as.Date(Date, '%m/%d/%y')
+#          , city = 'Stockholm') %>%
+#   select(city, date, newCases)
+
+source(file = 'socialMobilityCOVID/000.stockholm.R')
 
 
-londonCovid <- read.csv('data/phe_cases_london_boroughs.csv') %>%
+londonCovid <- read.csv('socialMobilityCOVID/data/raw/phe_cases_london_boroughs.csv') %>%
   mutate(date = as.Date(date)) %>%
   group_by(date) %>%
   summarize(newCases = sum(new_cases)) %>%
@@ -89,10 +91,10 @@ londonCovid <- read.csv('data/phe_cases_london_boroughs.csv') %>%
 
 
 
-apple <- read.csv('data/applemobilitytrends-2020-09-21.csv')
+apple <- read.csv('socialMobilityCOVID/data/raw/applemobilitytrends-2020-09-30.csv')
 
 
-topCity <- read.csv('data/top50USCitiesPop.csv') 
+topCity <- read.csv('socialMobilityCOVID/data/raw/top50USCitiesPop.csv') 
 
 
-google <- read.csv('data/Global_Mobility_Report.csv')
+google <- read.csv('socialMobilityCOVID/data/raw/Global_Mobility_Report.csv')

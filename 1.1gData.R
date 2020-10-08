@@ -183,3 +183,5 @@ gMobility %<>%
   filter(date >= as.Date('2020-03-01'))
 
 
+write.csv(gMobility
+          , file = 'socialMobilityCOVID/data/gMobility.csv')
