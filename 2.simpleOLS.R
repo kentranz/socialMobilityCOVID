@@ -2,6 +2,7 @@
 
 setwd('/Users/kentran/Documents/PhD/senMovement')
 source('socialMobilityCOVID/000.utils.R')
+#source('socialMobilityCOVID/000.stockholm.R') # API call to pull stockholm data
 source('socialMobilityCOVID/0.import.R')
 source('socialMobilityCOVID/000.olsCoeff95CI.R')
 source('socialMobilityCOVID/1.dataPrep.R')
@@ -42,8 +43,8 @@ FULL_Vars <-  c(
 ###################################
 
 startDate <- '2020-03-01'
-endDate <- '2020-09-30'
-trainSplitDate <- '2020-09-15'
+endDate <- '2020-11-14'
+trainSplitDate <- '2020-11-01'
 
 trainAll <- data %>% 
   filter(date >= as.Date('2020-03-01') 

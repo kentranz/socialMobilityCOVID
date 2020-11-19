@@ -149,8 +149,8 @@ data <- cityCovid %>%
   
   #### ADHOC CORRECTION FOR OVER REPORTING -> NEGATIVE NEW CASES
   mutate(newCases = case_when(newCases < 0 ~ 0
-                   , TRUE ~ newCases)
-         ) %>%
+                 , TRUE ~ newCases)
+      ) %>%
 
   group_by(city) %>%
   mutate(casesTminus1 = lag(newCases)

@@ -8,6 +8,12 @@ CBSAtoFIPS.csv
 https://github.com/nytimes/covid-19-data
 us-counties.csv
 
+Houston 9/21
+https://github.com/CSSEGISandData/COVID-19/issues/3144
+https://twitter.com/hcphtx/status/1308223067714445313
+https://communityimpact.com/houston/cy-fair/coronavirus/2020/09/22/harris-county-coronavirus-count-14000-case-backlog-added-to-total-mostly-recoveries/
+https://www.khou.com/article/news/verify/verify-backlog-blamed-for-spike-in-covid-19-cases-in-harris-county/285-51c3c1ec-5116-4050-ac8d-6a3665624381
+
 https://santemontreal.qc.ca/en/public/coronavirus-covid-19/situation-of-the-coronavirus-covid-19-in-montreal/
 MontrealCovid.csv
 
@@ -19,8 +25,10 @@ https://data.london.gov.uk/dataset/coronavirus--covid-19--cases
 phe_cases_london_boroughs.csv
 
 
-https://www.covid19insweden.com/en/region.html?regionId=15
-stockholm.csv
+Stockholm  
+https://www.covid19insweden.com/en/region.html?regionId=15  
+run 000.stockholm.R
+
 
 
 https://www.apple.com/covid19/mobility

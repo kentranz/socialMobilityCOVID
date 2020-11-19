@@ -1,14 +1,14 @@
 "Vars","Estimate","stdError","p"
-"Intercept","62.421",24.905,"0.013 *"
-"drivingMinus7","0.114",1.628,"0.944"
-"walkingMinus7","1.124",1.079,"0.299"
-"transitMinus7","-3.911",2.603,"0.135"
-"drivingMinus8","1.188",1.662,"0.476"
-"walkingMinus8","-0.328",1.026,"0.749"
-"transitMinus8","1.104",2.582,"0.669"
-"R2 Adjusted Training","0.199",NA,NA
-"R2 Test","0.021",NA,NA
-"RMSE Train","95.959",NA,NA
-"RMSE Test","149.393",NA,NA
-"RMSPE Train","1.561",NA,NA
-"RMSPE Test","1.133",NA,NA
+"Intercept","73.404",25.414,"0.004 *"
+"drivingMinus7","1.061",0.982,"0.281"
+"walkingMinus7","1.605",0.969,"0.099"
+"transitMinus7","-2.998",2.236,"0.181"
+"drivingMinus8","-0.97",1.015,"0.34"
+"walkingMinus8","-0.126",0.908,"0.889"
+"transitMinus8","0.464",2.216,"0.834"
+"R2 Adjusted Training","0.191",NA,NA
+"R2 Test","0.212",NA,NA
+"RMSE Train","100.482",NA,NA
+"RMSE Test","589.03",NA,NA
+"RMSPE Train","1.551",NA,NA
+"RMSPE Test","0.65",NA,NA

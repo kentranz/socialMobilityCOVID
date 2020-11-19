@@ -91,7 +91,7 @@ londonCovid <- read.csv('socialMobilityCOVID/data/raw/phe_cases_london_boroughs.
 
 
 
-apple <- read.csv('socialMobilityCOVID/data/raw/applemobilitytrends-2020-09-30.csv')
+apple <- read.csv('socialMobilityCOVID/data/raw/applemobilitytrends-2020-11-17.csv')
 
 
 topCity <- read.csv('socialMobilityCOVID/data/raw/top50USCitiesPop.csv') 
