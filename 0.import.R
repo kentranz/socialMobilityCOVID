@@ -97,4 +97,4 @@ apple <- read.csv('socialMobilityCOVID/data/raw/applemobilitytrends-2020-11-17.c
 topCity <- read.csv('socialMobilityCOVID/data/raw/top50USCitiesPop.csv') 
 
 
-google <- read.csv('socialMobilityCOVID/data/raw/Global_Mobility_Report.csv')
+#google <- read.csv('socialMobilityCOVID/data/raw/Global_Mobility_Report.csv')
