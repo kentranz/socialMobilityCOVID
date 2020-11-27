@@ -1,16 +1,16 @@
 "Vars","Estimate","stdError","p"
-"Intercept","-10.465",152.523,"0.945"
-"drivingMinus8","13.264",5.809,"0.023 *"
-"walkingMinus8","-2.803",3.329,"0.401"
-"transitMinus8","-10.208",4.638,"0.029 *"
-"anomalousWeekend","-60.678",310.508,"0.845"
-"longWeekend","-146.87",147.785,"0.321"
-"weekend","22.606",80.186,"0.778"
-"casesTminus1","0.328",0.063,"<0.001 *"
-"casesTminus2","0.33",0.063,"<0.001 *"
-"R2 Adjusted Training","0.607",NA,NA
+"Intercept","-34.009",114.208,"0.766"
+"drivingMinus8","13.37",5.589,"0.018 *"
+"walkingMinus8","-2.754",3.231,"0.395"
+"transitMinus8","-10.773",3.808,"0.005 *"
+"anomalousWeekend","-34.189",284.785,"0.905"
+"longWeekend","-147.446",145.21,"0.311"
+"weekend","20.87",76.283,"0.785"
+"casesTminus1","0.329",0.062,"<0.001 *"
+"casesTminus2","0.33",0.062,"<0.001 *"
+"R2 Adjusted Training","0.624",NA,NA
 "R2 Test","0",NA,NA
-"RMSE Train","511.448",NA,NA
-"RMSE Test","957.401",NA,NA
-"RMSPE Train","6.765",NA,NA
-"RMSPE Test","0.368",NA,NA
+"RMSE Train","503.121",NA,NA
+"RMSE Test","956.184",NA,NA
+"RMSPE Train","Inf",NA,NA
+"RMSPE Test","0.367",NA,NA

@@ -43,7 +43,7 @@ FULL_Vars <-  c(
 ###################################
 
 startDate <- '2020-03-01'
-endDate <- '2020-11-14'
+endDate <- '2020-11-15'
 trainSplitDate <- '2020-11-01'
 
 trainAll <- data %>% 
@@ -55,8 +55,8 @@ trainAll <- data %>%
   # ungroup() %>%
   # filter(t <= 60) # HOW MANY DAYS TO CUT
 
-all %>% group_by(city) %>% summarize(firstday = min(date)) %>% as.data.frame()
-all %>% group_by(city) %>% summarize(lastday = max(date)) %>% as.data.frame()
+trainAll %>% group_by(city) %>% summarize(firstday = min(date)) %>% as.data.frame()
+trainAll %>% group_by(city) %>% summarize(lastday = max(date)) %>% as.data.frame()
 
 testAll <- data %>% 
   #filter(date >= as.Date('2020-05-01') & date <= as.Date('2020-05-16'))

@@ -120,6 +120,21 @@ mobility %<>%
 
 
 
+## padding DF to backfill zeros until 2020-03-01
+padDF <- data.frame(
+          date = seq(as.Date('2020-03-01'), as.Date('2020-11-14'), by = 'day')
+          #, casesZero = rep(0) 
+          ) %>%
+          merge(cities, all=TRUE)
+
+cityCovid %<>% right_join(padDF
+                         , by = c('date' = 'date', 'city' = 'y')
+                        ) %>%
+                filter(is.na(city) != T) %>%
+                replace_na(list(all_cases = 0)) %>% 
+                arrange(city, date)
+
+
 
 # DATA FRAME USED FOR MODEL BUILDING
 data <- cityCovid %>%
@@ -133,7 +148,7 @@ data <- cityCovid %>%
   
   # CHANGE PEAK FOR BOSTON PER FRANCIS
   mutate(newCases = case_when(city == 'Boston'
-                               & date == as.Date('2020-05-31') ~ as.integer(360)
+                               & date == as.Date('2020-05-31') ~ 360
                                , TRUE ~ newCases
   )
   ) %>%
