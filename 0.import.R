@@ -42,7 +42,9 @@ FIPS <- read.csv('socialMobilityCOVID/data/raw/CBSAtoFIPS.csv'
 
 FIPS %>% distinct(city) %>% pull() %>% length()
 
-
+rawNYT <- read.csv('socialMobilityCOVID/data/raw/us-counties.csv'
+                   , colClasses=c( "fips"="character")
+                    )
 cityCovid <- read.csv('socialMobilityCOVID/data/raw/us-counties.csv'
                       , colClasses=c( "fips"="character")
                       ) %>%

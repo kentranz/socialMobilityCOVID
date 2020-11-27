@@ -55,6 +55,7 @@ trainAll <- data %>%
   # ungroup() %>%
   # filter(t <= 60) # HOW MANY DAYS TO CUT
 
+trainAll %>% group_by(city) %>% summarize(lastday = min(date))
 trainAll %>% group_by(city) %>% summarize(lastday = max(date))
 
 testAll <- data %>% 
