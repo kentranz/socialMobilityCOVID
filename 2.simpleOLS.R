@@ -43,7 +43,7 @@ FULL_Vars <-  c(
 ###################################
 
 startDate <- '2020-03-01'
-endDate <- '2020-11-15'
+endDate <- '2020-11-14'
 trainSplitDate <- '2020-11-01'
 
 trainAll <- data %>% 
@@ -74,6 +74,10 @@ write.csv(testAll
 
 all %>% group_by(city) %>% summarize(firstday = min(date)) %>% as.data.frame()
 all %>% group_by(city) %>% summarize(lastday = max(date)) %>% as.data.frame()
+
+
+all %>% group_by(city) %>% summarize(nDay = n()) %>% as.data.frame()
+
 
 
 for(j in 1:length(lag))
