@@ -55,8 +55,7 @@ trainAll <- data %>%
   # ungroup() %>%
   # filter(t <= 60) # HOW MANY DAYS TO CUT
 
-trainAll %>% group_by(city) %>% summarize(firstday = min(date)) %>% as.data.frame()
-trainAll %>% group_by(city) %>% summarize(lastday = max(date)) %>% as.data.frame()
+
 
 testAll <- data %>% 
   #filter(date >= as.Date('2020-05-01') & date <= as.Date('2020-05-16'))
@@ -73,6 +72,8 @@ write.csv(testAll
           , file = "socialMobilityCOVID/data/testAll.csv"
           , row.names = F)
 
+all %>% group_by(city) %>% summarize(firstday = min(date)) %>% as.data.frame()
+all %>% group_by(city) %>% summarize(lastday = max(date)) %>% as.data.frame()
 
 
 for(j in 1:length(lag))

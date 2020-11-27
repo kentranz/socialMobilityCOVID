@@ -125,19 +125,22 @@ padDF <- data.frame(
           date = seq(as.Date('2020-03-01'), as.Date('2020-11-14'), by = 'day')
           #, casesZero = rep(0) 
           ) %>%
-          merge(cities, all=TRUE)
-
-cityCovid %<>% right_join(padDF
-                         , by = c('date' = 'date', 'city' = 'y')
-                        ) %>%
-                filter(is.na(city) != T) %>%
-                replace_na(list(all_cases = 0)) %>% 
-                arrange(city, date)
-
+          merge(cities[!cities %in% c('Toronto', 'Montreal', 'Stockholm', 'London')]
+                , all=TRUE)
 
 
 # DATA FRAME USED FOR MODEL BUILDING
 data <- cityCovid %>%
+  
+  ## Back fill to 2020-03-01
+  right_join(padDF
+             , by = c('date' = 'date', 'city' = 'y')
+  ) %>%
+  filter(is.na(city) != T) %>%
+  replace_na(list(all_cases = 0)) %>% 
+  # arrange(city, date)
+  
+    
   group_by(city) %>%
   mutate(newCases = 
            case_when(
@@ -161,6 +164,9 @@ data <- cityCovid %>%
             , londonCovid
             ) %>%
   arrange(city, date) %>% 
+  
+
+  
   
   #### ADHOC CORRECTION FOR OVER REPORTING -> NEGATIVE NEW CASES
   mutate(newCases = case_when(newCases < 0 ~ 0
