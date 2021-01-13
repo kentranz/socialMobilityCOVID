@@ -1053,7 +1053,7 @@ plotDF <- train %>%
   select(city, day031620, case.rate) %>%
   mutate(city = as.character(city)) %>%
   cbind(pred) %>%
-  rename(fiited = fit
+  rename(fitted = fit
          , lowerCI.fitted = lwr
          , upperCI.fitted = upr
          ) %>%
@@ -1125,7 +1125,7 @@ plotDF <- train %>%
   select(city, day031620, case.rate) %>%
   mutate(city = as.character(city)) %>%
   cbind(pred) %>%
-  rename(fiited = fit
+  rename(fitted = fit
          , lowerCI.fitted = lwr
          , upperCI.fitted = upr
          ) %>%
