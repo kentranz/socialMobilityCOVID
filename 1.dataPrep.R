@@ -273,6 +273,7 @@ data <- cityCovid %>%
 
 data %>% group_by(city) %>% summarize(minDate = min(date)) %>% as.data.frame() %>% print()
 data %>% group_by(city) %>% summarize(maxDate = max(date)) %>% as.data.frame() %>% print()
+data %>% group_by(city) %>% summarize(n = n()) %>% as.data.frame() %>% print()
 
 data %>% 
   filter(newCases <0 | casesTminus1 < 0 | casesTminus2 < 0) %>% 

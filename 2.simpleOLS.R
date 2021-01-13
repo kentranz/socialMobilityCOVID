@@ -75,7 +75,6 @@ write.csv(testAll
 all %>% group_by(city) %>% summarize(firstday = min(date)) %>% as.data.frame()
 all %>% group_by(city) %>% summarize(lastday = max(date)) %>% as.data.frame()
 
-
 all %>% group_by(city) %>% summarize(nDay = n()) %>% as.data.frame()
 
 
