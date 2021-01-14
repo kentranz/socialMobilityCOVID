@@ -427,6 +427,17 @@ perform14 <- results14 %>%
 ## 24      Houston  4.09 0.93
 ```
 
+```r
+allMetrics <- perform7 %>% 
+  rename(MAE_lme_7d = MAE
+         , CP_lme_7d = CP) %>%
+  left_join(perform14
+            , by = "city"
+            ) %>%
+  rename(MAE_lme_14d = MAE
+         , CP_lme_14d = CP)
+```
+
 
 
 
@@ -674,7 +685,7 @@ results14$SE2 <- sqrt(predvar + model$sigma^2)
 Forecast 7 days into November
 
 ```r
-results7 %>% 
+perform7 <- results7 %>% 
   group_by(city) %>% 
   summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
             , CP = round(sum(case.rate >= (pred - 1.96*SE2) & case.rate <= (pred + 1.96*SE2) ) / n() , 2)
@@ -714,7 +725,7 @@ results7 %>%
 Forecast 14 days into November
 
 ```r
-results14 %>% 
+perform14 <- results14 %>% 
   group_by(city) %>% 
   summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
             , CP = round(sum(case.rate >= (pred - 1.96*SE2) & case.rate <= (pred + 1.96*SE2) ) / n() , 2)
@@ -749,6 +760,19 @@ results14 %>%
 ## 22     Oklahoma 19.66 0.07
 ## 23      Atlanta  7.50 0.21
 ## 24      Houston  4.05 0.43
+```
+
+```r
+allMetrics %<>% left_join(perform7
+                          , by = "city"
+                          ) %>%
+  rename(MAE_lmeWeighted_7d = MAE
+         , CP_lmeWeighted_7d = CP) %>%
+  left_join(perform14
+            , by = "city"
+            ) %>%
+  rename(MAE_lmeWeighted_14d = MAE
+         , CP_lmeWeighted_14d = CP)
 ```
 ### Forecast 7 days
 
@@ -967,7 +991,7 @@ results14$lowerCI <- pred$lwr
 Forecast 7 days into November
 
 ```r
-results7 %>% 
+perform7 <- results7 %>% 
   group_by(city) %>% 
   summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
             , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
@@ -1007,7 +1031,7 @@ results7 %>%
 Forecast 14 days into November
 
 ```r
-results14 %>% 
+perform14 <- results14 %>% 
   group_by(city) %>% 
   summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
             , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
@@ -1042,6 +1066,19 @@ results14 %>%
 ## 22     Oklahoma 20.46 0.50
 ## 23      Atlanta  7.29 0.86
 ## 24      Houston  3.73 1.00
+```
+
+```r
+allMetrics %<>% left_join(perform7
+                          , by = "city"
+                          ) %>%
+  rename(MAE_lm_7d = MAE
+         , CP_lm_7d = CP) %>%
+  left_join(perform14
+            , by = "city"
+            ) %>%
+  rename(MAE_lm_14d = MAE
+         , CP_lm_14d = CP)
 ```
 ### Forecast 7 days
 
@@ -1188,3 +1225,124 @@ p
 ![](lme_files/figure-html/multiReg14-1.png)<!-- -->
 
 
+
+```r
+allMetrics %>% 
+  select(city, starts_with('MAE')) %>% 
+  as.data.frame() %>% 
+  print()
+```
+
+```
+##            city MAE_lme_7d MAE_lme_14d MAE_lmeWeighted_7d MAE_lmeWeighted_14d
+## 1       Toronto       0.82        0.79               0.75                0.87
+## 2      Montreal       0.92        0.85               0.73                0.66
+## 3        London       4.12        4.56               4.59                4.52
+## 4     Stockholm       6.77        8.00               4.22                4.18
+## 5       Seattle       6.30        5.98               6.45                6.60
+## 6      Portland       5.12        5.20               4.72                5.43
+## 7     Baltimore       4.02        4.76               3.25                3.68
+## 8    Pittsburgh       3.19        4.43               2.65                3.46
+## 9   Los Angeles       2.74        3.82               2.41                3.34
+## 10   Sacramento       6.21        7.28               6.79                7.74
+## 11     New York       1.84        2.40               1.89                2.45
+## 12        Tampa       4.74        5.08               4.71                5.16
+## 13      Memphis      13.23       16.03              12.97               15.22
+## 14    Cleveland       8.46        9.97               5.96                6.80
+## 15       Boston       5.35        6.22               5.25                5.68
+## 16      Phoenix       6.64        8.96               6.27                8.97
+## 17       Dallas       7.87        8.72               7.95                8.21
+## 18 Indianapolis       9.19       12.46               7.55               11.30
+## 19        Miami       7.83       11.46               7.92               11.60
+## 20      Chicago      30.44       23.14              29.38               21.88
+## 21       Denver      13.37       15.86              13.12               15.08
+## 22     Oklahoma      21.09       21.90              20.37               19.66
+## 23      Atlanta       6.17        6.86               6.88                7.50
+## 24      Houston       2.30        4.09               2.48                4.05
+##    MAE_lm_7d MAE_lm_14d
+## 1       0.84       0.95
+## 2       0.93       0.85
+## 3       4.30       4.54
+## 4       6.02       7.02
+## 5       6.18       6.14
+## 6       4.74       5.12
+## 7       3.86       4.48
+## 8       2.82       3.65
+## 9       2.84       3.92
+## 10      6.43       7.40
+## 11      1.98       2.65
+## 12      4.70       5.04
+## 13     13.34      16.25
+## 14      7.43       8.59
+## 15      5.52       6.20
+## 16      6.94       9.11
+## 17      7.74       8.60
+## 18      9.18      12.36
+## 19      7.58      11.24
+## 20     30.56      23.42
+## 21     13.67      16.32
+## 22     20.19      20.46
+## 23      6.87       7.29
+## 24      2.14       3.73
+```
+
+
+```r
+allMetrics %>% 
+  select(city, starts_with('CP')) %>% 
+  as.data.frame() %>% 
+  print()
+```
+
+```
+##            city CP_lme_7d CP_lme_14d CP_lmeWeighted_7d CP_lmeWeighted_14d
+## 1       Toronto      1.00       1.00              1.00               1.00
+## 2      Montreal      1.00       1.00              1.00               1.00
+## 3        London      0.86       0.86              0.43               0.50
+## 4     Stockholm      0.86       0.93              0.57               0.43
+## 5       Seattle      1.00       0.93              0.14               0.07
+## 6      Portland      0.86       0.86              0.29               0.29
+## 7     Baltimore      1.00       0.93              0.43               0.50
+## 8    Pittsburgh      1.00       1.00              0.57               0.50
+## 9   Los Angeles      1.00       0.93              0.57               0.50
+## 10   Sacramento      0.86       0.79              0.29               0.21
+## 11     New York      1.00       1.00              0.71               0.64
+## 12        Tampa      1.00       1.00              0.29               0.21
+## 13      Memphis      0.57       0.50              0.14               0.14
+## 14    Cleveland      0.57       0.57              0.29               0.29
+## 15       Boston      1.00       1.00              0.29               0.29
+## 16      Phoenix      1.00       0.93              0.14               0.14
+## 17       Dallas      0.71       0.79              0.43               0.29
+## 18 Indianapolis      0.57       0.50              0.43               0.21
+## 19        Miami      0.71       0.50              0.14               0.07
+## 20      Chicago      0.43       0.36              0.00               0.07
+## 21       Denver      0.57       0.43              0.00               0.07
+## 22     Oklahoma      0.57       0.43              0.00               0.07
+## 23      Atlanta      0.71       0.79              0.14               0.21
+## 24      Houston      1.00       0.93              0.57               0.43
+##    CP_lm_7d CP_lm_14d
+## 1      1.00      1.00
+## 2      1.00      1.00
+## 3      0.86      0.86
+## 4      0.86      0.93
+## 5      1.00      1.00
+## 6      1.00      0.93
+## 7      1.00      0.93
+## 8      1.00      1.00
+## 9      1.00      0.93
+## 10     0.86      0.79
+## 11     1.00      1.00
+## 12     1.00      1.00
+## 13     0.57      0.50
+## 14     1.00      0.86
+## 15     1.00      1.00
+## 16     1.00      0.93
+## 17     0.71      0.79
+## 18     0.57      0.50
+## 19     0.71      0.50
+## 20     0.43      0.43
+## 21     0.57      0.43
+## 22     0.57      0.50
+## 23     0.86      0.86
+## 24     1.00      1.00
+```

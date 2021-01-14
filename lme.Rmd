@@ -333,6 +333,16 @@ perform14 <- results14 %>%
   as.data.frame() %>%
   print()
 
+
+allMetrics <- perform7 %>% 
+  rename(MAE_lme_7d = MAE
+         , CP_lme_7d = CP) %>%
+  left_join(perform14
+            , by = "city"
+            ) %>%
+  rename(MAE_lme_14d = MAE
+         , CP_lme_14d = CP)
+
 ```
 
 
@@ -528,7 +538,7 @@ results14$SE2 <- sqrt(predvar + model$sigma^2)
 ```
 Forecast 7 days into November
 ``` {r}
-results7 %>% 
+perform7 <- results7 %>% 
   group_by(city) %>% 
   summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
             , CP = round(sum(case.rate >= (pred - 1.96*SE2) & case.rate <= (pred + 1.96*SE2) ) / n() , 2)
@@ -540,13 +550,24 @@ results7 %>%
 
 Forecast 14 days into November
 ``` {r}
-results14 %>% 
+perform14 <- results14 %>% 
   group_by(city) %>% 
   summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
             , CP = round(sum(case.rate >= (pred - 1.96*SE2) & case.rate <= (pred + 1.96*SE2) ) / n() , 2)
             ) %>%
   as.data.frame() %>%
   print()
+
+allMetrics %<>% left_join(perform7
+                          , by = "city"
+                          ) %>%
+  rename(MAE_lmeWeighted_7d = MAE
+         , CP_lmeWeighted_7d = CP) %>%
+  left_join(perform14
+            , by = "city"
+            ) %>%
+  rename(MAE_lmeWeighted_14d = MAE
+         , CP_lmeWeighted_14d = CP)
 
 ```
 ### Forecast 7 days
@@ -730,7 +751,7 @@ results14$lowerCI <- pred$lwr
 ```
 Forecast 7 days into November
 ``` {r}
-results7 %>% 
+perform7 <- results7 %>% 
   group_by(city) %>% 
   summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
             , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
@@ -742,13 +763,25 @@ results7 %>%
 
 Forecast 14 days into November
 ``` {r}
-results14 %>% 
+perform14 <- results14 %>% 
   group_by(city) %>% 
   summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
             , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
             ) %>%
   as.data.frame() %>%
   print()
+
+allMetrics %<>% left_join(perform7
+                          , by = "city"
+                          ) %>%
+  rename(MAE_lm_7d = MAE
+         , CP_lm_7d = CP) %>%
+  left_join(perform14
+            , by = "city"
+            ) %>%
+  rename(MAE_lm_14d = MAE
+         , CP_lm_14d = CP)
+
 
 ```
 ### Forecast 7 days
@@ -896,3 +929,16 @@ p
 ```
 
 
+``` {r MAE}
+allMetrics %>% 
+  select(city, starts_with('MAE')) %>% 
+  as.data.frame() %>% 
+  print()
+```
+
+``` {r CP}
+allMetrics %>% 
+  select(city, starts_with('CP')) %>% 
+  as.data.frame() %>% 
+  print()
+```
