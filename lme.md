@@ -216,12 +216,41 @@ where day 15 (16th day), i.e., 03-16-20, will be first day w/ all complete data 
 
 
 ```r
+cutOff <- as.Date("2020-10-31")
+
 train <- alldata.groupedR %>% 
-  filter(day031620 >= 0 & as.Date(date) <= as.Date("2020-10-31"))
+  filter(day031620 >= 0 & as.Date(date) <= cutOff)
+
+
 test7 <- alldata.groupedR %>% 
-  filter(day031620 >= 0 & as.Date(date) > as.Date("2020-10-31") & as.Date(date) <= as.Date("2020-11-07"))
+  filter(day031620 >= 0 & as.Date(date) > cutOff & as.Date(date) <= (cutOff + 7)) %>%
+  select(city, day031620, date, weekend, case.rate, casesTminus1.rate, casesTminus2.rate, walkingMinus7, walkingMinus14) %>%
+  
+  # retained lag case rates for first 2 days only, zero out the rest
+  mutate(
+    casesTminus1.rate = case_when(as.Date(date) == (cutOff + 1) ~ casesTminus1.rate
+                                    , TRUE ~ 0
+                                  ) 
+    , casesTminus2.rate = case_when(as.Date(date) == (cutOff + 1) | as.Date(date) == (cutOff + 2) ~ casesTminus2.rate
+                                    , TRUE ~ 0
+                                  ) 
+  )
+  
+  
 test14 <- alldata.groupedR %>% 
-  filter(day031620 >= 0 & as.Date(date) > as.Date("2020-10-31"))
+  filter(day031620 >= 0 & as.Date(date) > cutOff) %>%
+  select(city, day031620, date, weekend, case.rate, casesTminus1.rate, casesTminus2.rate, walkingMinus7, walkingMinus14) %>%
+  
+  # retained lag case rates for first 2 days only, zero out the rest
+  mutate(
+    casesTminus1.rate = case_when(as.Date(date) == (cutOff + 1) ~ casesTminus1.rate
+                                    , TRUE ~ 0
+                                  ) 
+    , casesTminus2.rate = case_when(as.Date(date) == (cutOff + 1) | as.Date(date) == (cutOff + 2) ~ casesTminus2.rate
+                                    , TRUE ~ 0
+                                  ) 
+  )
+
 
 nrow(train)
 ```
@@ -247,7 +276,46 @@ nrow(test14)
 ```
   
 
+
+
+
+
 ## Automate extracting 95% CI for prediction band, metrics, and plotting
+
+Predict one day at a time, feedforward the prediction as lag case.rate. 
+
+
+```r
+forecastLME <- function(model, test) # provide model obj and test set
+{
+  for (i in 1:nrow(test))
+  {
+    
+    pred <- predict(model, newdata = test[i,])
+    test[i, 'pred'] <- pred
+    
+    # if second day or later, use pred case.rate as lag-1
+    if ( i <= (nrow(test)-1) & as.Date(test[i+1,'date']) > cutOff+1)
+    {
+      test[i+1, 'casesTminus1.rate'] <- pred
+    }
+    
+    # if third day or later, use pred case.rate as lag-2
+    if (i <= (nrow(test)-2) & as.Date(test[i+2,'date']) > (cutOff + 2))
+    {
+      test[i+2, 'casesTminus2.rate'] <- pred
+    }
+  
+  }
+  
+  return(test)
+}
+
+#forecast(model = case.rate.lme20201031
+#         , test = test14
+#         )
+```
+
 
 Extract 95% CI for prediction band. References from the web:
 
@@ -260,14 +328,13 @@ SE2: This takes into account both random effect uncertainty and within-group err
 
 
 
+
 ```r
-metricsFunc <- function(model)
+#model <- case.rate.lme20201031
+
+metricsFuncLME <- function(model)
 {
-  # store all X and y in a new dataframe, filtering out unwanted dates
-  results7 <- test7 %>%
-    select(city, day031620, case.rate, casesTminus1.rate, casesTminus2.rate, weekend, walkingMinus7)
-    
-  results7$pred <- predict(model, newdata = results7)
+  results7 <- forecastLME(model, test = test7)
   
   # create design mateix
   # [-2] drops response from formula
@@ -280,10 +347,8 @@ metricsFunc <- function(model)
   results7$SE2 <- sqrt(predvar + model$sigma^2) # sigma is the estimated within-group error standard deviation
   
   
-  results14 <- test14 %>%
-    select(city, day031620, case.rate, casesTminus1.rate, casesTminus2.rate, weekend, walkingMinus7)
-    
-  results14$pred <- predict(model, newdata = results14)
+  results14 <- forecastLME(model, test = test14)
+  
   Designmat <- model.matrix(formula(model)[-2], results14)
   predvar <- diag(Designmat %*% vcov(model) %*% t(Designmat)) 
   results14$SE <- sqrt(predvar) 
@@ -326,9 +391,7 @@ metricsFunc <- function(model)
 
 
 
-
-
-plotFunc <- function(model
+plotFuncLME <- function(model
                      , forecastLength # only 7 or 14 as numeric arg
                      )
 {
@@ -385,7 +448,7 @@ plotFunc <- function(model
     
     geom_line(data = filter(plotDF, variable == 'case.rate'), linetype = "solid", color = 'black', alpha = 0.6) + 
     geom_line(data = filter(plotDF, variable == 'fitted'), linetype = "solid", color = 'red') +
-    geom_line(data = filter(plotDF, variable == 'pred'), linetype = "dashed", color = 'blue') +
+    geom_line(data = filter(plotDF, variable == 'pred'), linetype = "solid", color = 'blue') +
     
     # uncertainty band for fitted model
     geom_ribbon(data = filter(plotDF, variable == 'lowerCI.fitted')
@@ -457,16 +520,16 @@ summary(case.rate.lme20201031)
 ##  Formula: ~casesTminus1.rate + casesTminus2.rate - 1 | city
 ##  Structure: General positive-definite, Log-Cholesky parametrization
 ##                   StdDev     Corr  
-## casesTminus1.rate 0.07907325 cssT1.
-## casesTminus2.rate 0.04288684 -0.435
-## Residual          6.36425308       
+## casesTminus1.rate 0.07906328 cssT1.
+## casesTminus2.rate 0.04288122 -0.435
+## Residual          6.36425583       
 ## 
 ## Fixed effects: case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend 
-##                        Value  Std.Error   DF  t-value p-value
-## (Intercept)        2.0832962 0.13890453 5493 14.99804       0
-## casesTminus1.rate  0.4925352 0.02381526 5493 20.68150       0
-## casesTminus2.rate  0.3444521 0.01836728 5493 18.75357       0
-## weekend           -1.6611538 0.19088742 5493 -8.70227       0
+##                        Value  Std.Error   DF   t-value p-value
+## (Intercept)        2.0832864 0.13890398 5493 14.998033       0
+## casesTminus1.rate  0.4925348 0.02381341 5493 20.683084       0
+## casesTminus2.rate  0.3444545 0.01836626 5493 18.754750       0
+## weekend           -1.6611547 0.19088747 5493 -8.702272       0
 ##  Correlation: 
 ##                   (Intr) cssT1. cssT2.
 ## casesTminus1.rate -0.216              
@@ -475,7 +538,7 @@ summary(case.rate.lme20201031)
 ## 
 ## Standardized Within-Group Residuals:
 ##         Min          Q1         Med          Q3         Max 
-## -10.4155607  -0.3069076  -0.1145516   0.1803768  30.2216669 
+## -10.4156308  -0.3069059  -0.1145507   0.1803790  30.2216519 
 ## 
 ## Number of Observations: 5520
 ## Number of Groups: 24
@@ -483,30 +546,20 @@ summary(case.rate.lme20201031)
 
 
 ```r
-output <- metricsFunc(model = case.rate.lme20201031)
+output <- metricsFuncLME(model = case.rate.lme20201031)
 
 allMetrics <- output$performMetrics %>%
   rename_at(vars(-city), function(x) {paste0(x, "_lme")})
 
-plotFunc(model = case.rate.lme20201031
+plotFuncLME(model = case.rate.lme20201031
          , forecastLength = 7)
-```
-
-```
-## Warning: attributes are not identical across measure variables; they will be
-## dropped
 ```
 
 ![](lme_files/figure-html/unnamed-chunk-1-1.png)<!-- -->
 
 ```r
-plotFunc(model = case.rate.lme20201031
+plotFuncLME(model = case.rate.lme20201031
          , forecastLength = 14)
-```
-
-```
-## Warning: attributes are not identical across measure variables; they will be
-## dropped
 ```
 
 ![](lme_files/figure-html/unnamed-chunk-2-1.png)<!-- -->
@@ -532,28 +585,28 @@ summary(case.rate.lme20201031.reweighed)
 ## Linear mixed-effects model fit by REML
 ##  Data: train 
 ##        AIC      BIC    logLik
-##   31729.12 31788.66 -15855.56
+##   31729.13 31788.67 -15855.56
 ## 
 ## Random effects:
 ##  Formula: ~casesTminus1.rate + casesTminus2.rate - 1 | city
 ##  Structure: General positive-definite, Log-Cholesky parametrization
 ##                   StdDev     Corr  
-## casesTminus1.rate 0.04656959 cssT1.
-## casesTminus2.rate 0.05341711 -1    
-## Residual          1.23431392       
+## casesTminus1.rate 0.04657375 cssT1.
+## casesTminus2.rate 0.05341980 -1    
+## Residual          1.23431651       
 ## 
 ## Variance function:
 ##  Structure: Power of variance covariate
 ##  Formula: ~fitted(.) 
 ##  Parameter estimates:
 ##     power 
-## 0.6615351 
+## 0.6615344 
 ## Fixed effects: case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend 
 ##                        Value  Std.Error   DF   t-value p-value
-## (Intercept)        0.6067788 0.05237130 5493 11.586095       0
-## casesTminus1.rate  0.5251835 0.02241559 5493 23.429382       0
-## casesTminus2.rate  0.4529133 0.02316650 5493 19.550361       0
-## weekend           -0.6734468 0.06969857 5493 -9.662276       0
+## (Intercept)        0.6067771 0.05237126 5493 11.586069       0
+## casesTminus1.rate  0.5251840 0.02241606 5493 23.428912       0
+## casesTminus2.rate  0.4529136 0.02316685 5493 19.550074       0
+## weekend           -0.6734462 0.06969851 5493 -9.662275       0
 ##  Correlation: 
 ##                   (Intr) cssT1. cssT2.
 ## casesTminus1.rate -0.118              
@@ -562,41 +615,31 @@ summary(case.rate.lme20201031.reweighed)
 ## 
 ## Standardized Within-Group Residuals:
 ##         Min          Q1         Med          Q3         Max 
-## -3.53641943 -0.39252666 -0.09136161  0.25386552 30.15583085 
+## -3.53641049 -0.39252818 -0.09136324  0.25386495 30.15586818 
 ## 
 ## Number of Observations: 5520
 ## Number of Groups: 24
 ```
 
 ```r
-output <- metricsFunc(model = case.rate.lme20201031.reweighed)
+output <- metricsFuncLME(model = case.rate.lme20201031.reweighed)
 
 allMetrics <- allMetrics %>% left_join(
     output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmeWeighted")})
+      rename_at(vars(-city), function(x) {paste0(x, "_lmeWt")})
     , by = "city"
     )
 
 
-plotFunc(model = case.rate.lme20201031.reweighed
+plotFuncLME(model = case.rate.lme20201031.reweighed
          , forecastLength = 7)
-```
-
-```
-## Warning: attributes are not identical across measure variables; they will be
-## dropped
 ```
 
 ![](lme_files/figure-html/unnamed-chunk-3-1.png)<!-- -->
 
 ```r
-plotFunc(model = case.rate.lme20201031.reweighed
+plotFuncLME(model = case.rate.lme20201031.reweighed
          , forecastLength = 14)
-```
-
-```
-## Warning: attributes are not identical across measure variables; they will be
-## dropped
 ```
 
 ![](lme_files/figure-html/unnamed-chunk-4-1.png)<!-- -->
@@ -627,8 +670,8 @@ summary(case.rate.lme20201031.reweighed.walking7)
 ##  Formula: ~casesTminus1.rate + casesTminus2.rate - 1 | city
 ##  Structure: General positive-definite, Log-Cholesky parametrization
 ##                   StdDev       Corr  
-## casesTminus1.rate 5.228944e-05 cssT1.
-## casesTminus2.rate 3.819776e-06 0     
+## casesTminus1.rate 5.229531e-05 cssT1.
+## casesTminus2.rate 3.820032e-06 0     
 ## Residual          1.209377e+00       
 ## 
 ## Variance function:
@@ -639,7 +682,7 @@ summary(case.rate.lme20201031.reweighed.walking7)
 ## 0.6704094 
 ## Fixed effects: case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend +      walkingMinus7 
 ##                        Value  Std.Error   DF   t-value p-value
-## (Intercept)        0.6707064 0.05589632 5492 11.999115   0e+00
+## (Intercept)        0.6707064 0.05589633 5492 11.999115   0e+00
 ## casesTminus1.rate  0.5166564 0.01955352 5492 26.422681   0e+00
 ## casesTminus2.rate  0.4551779 0.01951942 5492 23.319233   0e+00
 ## weekend           -0.6332936 0.07090597 5492 -8.931457   0e+00
@@ -653,47 +696,198 @@ summary(case.rate.lme20201031.reweighed.walking7)
 ## 
 ## Standardized Within-Group Residuals:
 ##         Min          Q1         Med          Q3         Max 
-## -3.53352791 -0.39377854 -0.08448579  0.25238647 30.29984024 
+## -3.53352794 -0.39377854 -0.08448579  0.25238647 30.29984032 
 ## 
 ## Number of Observations: 5520
 ## Number of Groups: 24
 ```
 
 ```r
-output <- metricsFunc(model = case.rate.lme20201031.reweighed.walking7)
+output <- metricsFuncLME(model = case.rate.lme20201031.reweighed.walking7)
 
 allMetrics <- allMetrics %>% left_join(
     output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmeWeightedWalking7")})
+      rename_at(vars(-city), function(x) {paste0(x, "_lmeWtWk7")})
     , by = "city"
     )
 
 
-plotFunc(model = case.rate.lme20201031.reweighed.walking7
+plotFuncLME(model = case.rate.lme20201031.reweighed.walking7
          , forecastLength = 7)
-```
-
-```
-## Warning: attributes are not identical across measure variables; they will be
-## dropped
 ```
 
 ![](lme_files/figure-html/unnamed-chunk-6-1.png)<!-- -->
 
 
 ```r
-plotFunc(model = case.rate.lme20201031.reweighed.walking7
+plotFuncLME(model = case.rate.lme20201031.reweighed.walking7
          , forecastLength = 14)
-```
-
-```
-## Warning: attributes are not identical across measure variables; they will be
-## dropped
 ```
 
 ![](lme_files/figure-html/unnamed-chunk-7-1.png)<!-- -->
 
 ## Naive Multiple Regression
+
+Automate some functions specific to LM object
+
+```r
+forecastLM <- function(model, test) # provide model obj and test set
+{
+  for (i in 1:nrow(test))
+  {
+    
+    pred <- predict(model, newdata = test[i,], interval = "prediction", level = 0.95) %>% as.data.frame()
+    test[i, 'pred'] <- pred$fit
+    test[i, 'lowerCI'] <- pred$lwr
+    test[i, 'upperCI'] <- pred$upr
+    
+    
+    # if second day or later, use pred case.rate as lag-1
+    if ( i <= (nrow(test)-1) & as.Date(test[i+1,'date']) > cutOff+1)
+    {
+      test[i+1, 'casesTminus1.rate'] <- pred$fit
+    }
+    
+    # if third day or later, use pred case.rate as lag-2
+    if (i <= (nrow(test)-2) & as.Date(test[i+2,'date']) > (cutOff + 2))
+    {
+      test[i+2, 'casesTminus2.rate'] <- pred$fit
+    }
+  
+  }
+  
+  return(test)
+}
+
+# 
+# 
+# temp <- forecastLM(model = case.rate.lm
+#         , test = test14
+#         )
+
+
+metricsFuncLM <- function(model)
+{
+  results7 <- forecastLM(model, test = test7)
+  
+  results14 <- forecastLM(model, test = test14)
+  
+  metrics <- results7 %>% 
+    group_by(city) %>% 
+    summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+              , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+              , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+              ) %>%
+    left_join( results14 %>% 
+                 group_by(city) %>% 
+                 summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+                           , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+                           , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+                           )
+               , by = "city"
+               , suffix = c("_7d", "_14d")
+               ) 
+  
+  return(list(performMetrics = metrics
+              , results7 = results7
+              , results14 = results14))
+}
+
+
+
+
+plotFuncLM <- function(model, forecastLength)
+{
+  
+  
+  if(forecastLength == 7)
+  { results = output$results7
+    
+    metrics <- output$performMetrics %>% 
+      select(city, contains("7d"))
+  }
+  
+  if(forecastLength == 14)
+  { results = output$results14
+    
+    metrics <- output$performMetrics %>% 
+      select(city, contains("14d")) 
+  }
+  
+  metrics <- setNames(metrics, gsub("_.*", "", names(metrics)))
+
+  pred <- predict(model, newdata = train, interval = "prediction", level = 0.95)
+
+  plotDF <- train %>% 
+    select(city, day031620, case.rate) %>%
+    mutate(city = as.character(city)) %>%
+    cbind(pred) %>%
+    rename(fitted = fit
+           , lowerCI.fitted = lwr
+           , upperCI.fitted = upr
+           ) %>%
+    reshape::melt(id = c('city', 'day031620')) %>%
+    
+    # bring into forecasted case rates
+    rbind(results %>% 
+            select(city, day031620, case.rate, pred, upperCI, lowerCI) %>% 
+            rename(upperCI.pred = upperCI
+                   , lowerCI.pred = lowerCI
+                   ) %>%
+            reshape2::melt(id = c('city', 'day031620'))
+          ) 
+      
+  
+  p <- ggplot(plotDF 
+              , aes(day031620, value, group = variable, colour = variable)) +
+    
+    geom_line(data = filter(plotDF, variable == 'case.rate'), linetype = "solid", color = 'black', alpha = 0.6) + 
+    geom_line(data = filter(plotDF, variable == 'fitted'), linetype = "solid", color = 'red') +
+    geom_line(data = filter(plotDF, variable == 'pred'), linetype = "solid", color = 'blue') +
+    
+    # uncertainty band for fitted model
+    geom_ribbon(data = filter(plotDF, variable == 'lowerCI.fitted')
+      , aes(ymin = filter(plotDF, variable == 'lowerCI.fitted')$value
+                    , ymax =  filter(plotDF, variable == 'upperCI.fitted')$value
+                    )
+                , alpha = 0.3, color = NA
+                , fill = "red") +
+    
+    # prediction band for forecast
+    geom_ribbon(data = filter(plotDF, variable == 'lowerCI.pred')
+      , aes(ymin = filter(plotDF, variable == 'lowerCI.pred')$value
+                    , ymax =  filter(plotDF, variable == 'upperCI.pred')$value
+                    )
+                , alpha = 0.3, color = NA
+                , fill = "blue") +
+    
+    facet_wrap(. ~ city, ncol = 2) +
+    ggtitle('Forecast 7 Days') +
+    ylab('Case Rate per 100,000 People') +
+    xlab('Days since March 16, 2020') +
+    #ylim(-15,100) +
+    
+    # add performance metrics
+    geom_label(data = metrics %>% mutate(MAPE = paste0("MAPE = ", MAPE))
+               , aes(label = MAPE), 
+              x = 0, y = 155, hjust="inward", vjust="inward",
+              inherit.aes = FALSE) +
+    geom_label(data = metrics %>% mutate(MAE = paste0("MAE = ", MAE))
+               , aes(label = MAE), 
+              x = 0, y = 125, hjust="inward", vjust="inward",
+              inherit.aes = FALSE) +
+    geom_label(data = metrics %>% mutate(CP = paste0("CP = ", CP))
+                , aes(label = CP), 
+               x = 0, y = 70, hjust="inward", vjust="inward",
+               inherit.aes = FALSE) +
+     
+    theme_classic() +
+    theme(legend.position = 'none') 
+    
+  p
+}
+```
+
 
 
 ```r
@@ -729,193 +923,33 @@ summary(case.rate.lm)
 ## F-statistic:  3875 on 3 and 5516 DF,  p-value: < 2.2e-16
 ```
 
-
 ```r
-model <- case.rate.lm
-
-results7 <- test7 %>% select(city, day031620, case.rate, casesTminus1.rate, casesTminus2.rate, weekend) 
-pred <- predict(model, newdata = results7, interval = "prediction", level = 0.95) %>% as.data.frame()
-results7$pred <- pred$fit
-results7$upperCI <- pred$upr
-results7$lowerCI <- pred$lwr
-
-results14 <- test14 %>% select(city, day031620, case.rate, casesTminus1.rate, casesTminus2.rate, weekend)
-pred <- predict(model, newdata = results14, interval = "prediction", level = 0.95) %>% as.data.frame()
-results14$pred <- pred$fit
-results14$upperCI <- pred$upr
-results14$lowerCI <- pred$lwr
-
-metrics <- results7 %>% 
-  group_by(city) %>% 
-  summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
-            , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
-            , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
-            ) %>%
-  left_join( results14 %>% 
-               group_by(city) %>% 
-               summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
-                         , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
-                         , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
-                         )
-             , by = "city"
-             , suffix = c("_7d", "_14d")
-             ) 
-#metrics %>% arrange(as.character(city)) %>% as.data.frame() %>% print()
-
+output <- metricsFuncLM(model = case.rate.lm)
 
 allMetrics <- allMetrics %>% left_join(
-    metrics %>%
+    output$performMetrics %>%
       rename_at(vars(-city), function(x) {paste0(x, "_lm")})
     , by = "city"
     )
-```
 
-
-```r
-pred <- predict(model, newdata = train, interval = "prediction", level = 0.95) 
-
-plotDF <- train %>% 
-  select(city, day031620, case.rate) %>%
-  mutate(city = as.character(city)) %>%
-  cbind(pred) %>%
-  rename(fitted = fit
-         , lowerCI.fitted = lwr
-         , upperCI.fitted = upr
-         ) %>%
-  reshape::melt(id = c('city', 'day031620')) %>%
-  
-  # bring into forecasted case rates
-  rbind(results7 %>% 
-          select(city, day031620, case.rate, pred, upperCI, lowerCI) %>% 
-          rename(upperCI.pred = upperCI
-                 , lowerCI.pred = lowerCI
-                 ) %>%
-          reshape2::melt(id = c('city', 'day031620'))
-        ) 
-    
-
-p <- ggplot(plotDF 
-            , aes(day031620, value, group = variable, colour = variable)) +
-  
-  geom_line(data = filter(plotDF, variable == 'case.rate'), linetype = "solid", color = 'black', alpha = 0.6) + 
-  geom_line(data = filter(plotDF, variable == 'fitted'), linetype = "solid", color = 'red') +
-  geom_line(data = filter(plotDF, variable == 'pred'), linetype = "dashed", color = 'blue') +
-  
-  # uncertainty band for fitted model
-  geom_ribbon(data = filter(plotDF, variable == 'lowerCI.fitted')
-    , aes(ymin = filter(plotDF, variable == 'lowerCI.fitted')$value
-                  , ymax =  filter(plotDF, variable == 'upperCI.fitted')$value
-                  )
-              , alpha = 0.3, color = NA
-              , fill = "red") +
-  
-  # prediction band for forecast
-  geom_ribbon(data = filter(plotDF, variable == 'lowerCI.pred')
-    , aes(ymin = filter(plotDF, variable == 'lowerCI.pred')$value
-                  , ymax =  filter(plotDF, variable == 'upperCI.pred')$value
-                  )
-              , alpha = 0.3, color = NA
-              , fill = "blue") +
-  
-  facet_wrap(. ~ city, ncol = 2) +
-  ggtitle('Forecast 7 Days') +
-  ylab('Case Rate per 100,000 People') +
-  xlab('Days since March 16, 2020') +
-  #ylim(-15,100) +
-  
-  # add performance metrics
-  geom_label(data = metrics %>% mutate(MAPE_7d = paste0("MAPE = ", MAPE_7d))
-             , aes(label = MAPE_7d), 
-            x = 0, y = 155, hjust="inward", vjust="inward",
-            inherit.aes = FALSE) +
-  geom_label(data = metrics %>% mutate(MAE_7d = paste0("MAE = ", MAE_7d))
-             , aes(label = MAE_7d), 
-            x = 0, y = 125, hjust="inward", vjust="inward",
-            inherit.aes = FALSE) +
-  geom_label(data = metrics %>% mutate(CP_7d = paste0("CP = ", CP_7d))
-              , aes(label = CP_7d), 
-             x = 0, y = 70, hjust="inward", vjust="inward",
-             inherit.aes = FALSE) +
-   
-  theme_classic() +
-  theme(legend.position = 'none') 
-  
-p
+plotFuncLM(model = case.rate.lm
+         , forecastLength = 7)
 ```
 
 ![](lme_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
 
-```r
-plotDF <- train %>% 
-  select(city, day031620, case.rate) %>%
-  mutate(city = as.character(city)) %>%
-  cbind(pred) %>%
-  rename(fitted = fit
-         , lowerCI.fitted = lwr
-         , upperCI.fitted = upr
-         ) %>%
-  reshape::melt(id = c('city', 'day031620')) %>%
-  
-  # bring into forecasted case rates
-  rbind(results14 %>% 
-          select(city, day031620, case.rate, pred, upperCI, lowerCI) %>% 
-          rename(upperCI.pred = upperCI
-                 , lowerCI.pred = lowerCI
-                 ) %>%
-          reshape2::melt(id = c('city', 'day031620'))
-        ) 
-    
 
-p <- ggplot(plotDF 
-            , aes(day031620, value, group = variable, colour = variable)) +
-  
-  geom_line(data = filter(plotDF, variable == 'case.rate'), linetype = "solid", color = 'black', alpha = 0.6) + 
-  geom_line(data = filter(plotDF, variable == 'fitted'), linetype = "solid", color = 'red') +
-  geom_line(data = filter(plotDF, variable == 'pred'), linetype = "dashed", color = 'blue') +
-  
-  # uncertainty band for fitted model
-  geom_ribbon(data = filter(plotDF, variable == 'lowerCI.fitted')
-    , aes(ymin = filter(plotDF, variable == 'lowerCI.fitted')$value
-                  , ymax =  filter(plotDF, variable == 'upperCI.fitted')$value
-                  )
-              , alpha = 0.3, color = NA
-              , fill = "red") +
-  
-  # prediction band for forecast
-  geom_ribbon(data = filter(plotDF, variable == 'lowerCI.pred')
-    , aes(ymin = filter(plotDF, variable == 'lowerCI.pred')$value
-                  , ymax =  filter(plotDF, variable == 'upperCI.pred')$value
-                  )
-              , alpha = 0.3, color = NA
-              , fill = "blue") +
-  
-  facet_wrap(. ~ city, ncol = 2) +
-  ggtitle('Forecast 14 Days') +
-  ylab('Case Rate per 100,000 People') +
-  xlab('Days since March 16, 2020') +
-  #ylim(-15,100) +
-  
-  # add performance metrics
-  geom_label(data = metrics %>% mutate(MAPE_14d = paste0("MAPE = ", MAPE_14d))
-             , aes(label = MAPE_14d), 
-            x = 0, y = 155, hjust="inward", vjust="inward",
-            inherit.aes = FALSE) +
-  geom_label(data = metrics %>% mutate(MAE_14d = paste0("MAE = ", MAE_14d))
-             , aes(label = MAE_14d), 
-            x = 0, y = 125, hjust="inward", vjust="inward",
-            inherit.aes = FALSE) +
-  geom_label(data = metrics %>% mutate(CP_14d = paste0("CP = ", CP_14d))
-              , aes(label = CP_14d), 
-             x = 0, y = 70, hjust="inward", vjust="inward",
-             inherit.aes = FALSE) +
-   
-  theme_classic() +
-  theme(legend.position = 'none') 
-  
-p
+
+
+
+```r
+plotFuncLM(model = case.rate.lm
+         , forecastLength = 14)
 ```
 
 ![](lme_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
+
+
 
 ## Naive Multiple Regression with Walking-7
 
@@ -955,195 +989,41 @@ summary(case.rate.lm.walking7)
 ```
 
 
+
+
 ```r
-model <- case.rate.lm.walking7
-
-results7 <- test7 %>% select(city, day031620, case.rate, casesTminus1.rate, casesTminus2.rate, weekend, walkingMinus7)
-pred <- predict(model, newdata = results7, interval = "prediction", level = 0.95) %>% as.data.frame()
-results7$pred <- pred$fit
-results7$upperCI <- pred$upr
-results7$lowerCI <- pred$lwr
-
-results14 <- test14 %>% select(city, day031620, case.rate, casesTminus1.rate, casesTminus2.rate, weekend, walkingMinus7)
-pred <- predict(model, newdata = results14, interval = "prediction", level = 0.95) %>% as.data.frame()
-results14$pred <- pred$fit
-results14$upperCI <- pred$upr
-results14$lowerCI <- pred$lwr
-
-metrics <- results7 %>%
-  group_by(city) %>%
-  summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
-            , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
-            , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
-            ) %>%
-  left_join( results14 %>%
-               group_by(city) %>%
-               summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
-                         , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
-                         , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
-                         )
-             , by = "city"
-             , suffix = c("_7d", "_14d")
-             )
-#metrics %>% arrange(as.character(city)) %>% as.data.frame() %>% print()
+output <- metricsFuncLM(model = case.rate.lm.walking7)
 
 allMetrics <- allMetrics %>% left_join(
-    metrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmWalking7")})
+    output$performMetrics %>%
+      rename_at(vars(-city), function(x) {paste0(x, "_lmWk7")})
     , by = "city"
     )
+
+plotFuncLM(model = case.rate.lm.walking7
+         , forecastLength = 7)
 ```
+
+![](lme_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
+
+
+
 
 
 ```r
-pred <- predict(model, newdata = train, interval = "prediction", level = 0.95)
-
-plotDF <- train %>%
-  select(city, day031620, case.rate) %>%
-  mutate(city = as.character(city)) %>%
-  cbind(pred) %>%
-  rename(fitted = fit
-         , lowerCI.fitted = lwr
-         , upperCI.fitted = upr
-         ) %>%
-  reshape::melt(id = c('city', 'day031620')) %>%
-
-  # bring into forecasted case rates
-  rbind(results7 %>%
-          select(city, day031620, case.rate, pred, upperCI, lowerCI) %>%
-          rename(upperCI.pred = upperCI
-                 , lowerCI.pred = lowerCI
-                 ) %>%
-          reshape2::melt(id = c('city', 'day031620'))
-        )
-
-
-p <- ggplot(plotDF
-            , aes(day031620, value, group = variable, colour = variable)) +
-
-  geom_line(data = filter(plotDF, variable == 'case.rate'), linetype = "solid", color = 'black', alpha = 0.6) +
-  geom_line(data = filter(plotDF, variable == 'fitted'), linetype = "solid", color = 'red') +
-  geom_line(data = filter(plotDF, variable == 'pred'), linetype = "dashed", color = 'blue') +
-
-  # uncertainty band for fitted model
-  geom_ribbon(data = filter(plotDF, variable == 'lowerCI.fitted')
-    , aes(ymin = filter(plotDF, variable == 'lowerCI.fitted')$value
-                  , ymax =  filter(plotDF, variable == 'upperCI.fitted')$value
-                  )
-              , alpha = 0.3, color = NA
-              , fill = "red") +
-
-  # prediction band for forecast
-  geom_ribbon(data = filter(plotDF, variable == 'lowerCI.pred')
-    , aes(ymin = filter(plotDF, variable == 'lowerCI.pred')$value
-                  , ymax =  filter(plotDF, variable == 'upperCI.pred')$value
-                  )
-              , alpha = 0.3, color = NA
-              , fill = "blue") +
-
-  facet_wrap(. ~ city, ncol = 2) +
-  ggtitle('Forecast 7 Days') +
-  ylab('Case Rate per 100,000 People') +
-  xlab('Days since March 16, 2020') +
-  #ylim(-15,100) +
-
-  # add performance metrics
-  geom_label(data = metrics %>% mutate(MAPE_7d = paste0("MAPE = ", MAPE_7d))
-             , aes(label = MAPE_7d),
-            x = 0, y = 155, hjust="inward", vjust="inward",
-            inherit.aes = FALSE) +
-  geom_label(data = metrics %>% mutate(MAE_7d = paste0("MAE = ", MAE_7d))
-             , aes(label = MAE_7d),
-            x = 0, y = 125, hjust="inward", vjust="inward",
-            inherit.aes = FALSE) +
-  geom_label(data = metrics %>% mutate(CP_7d = paste0("CP = ", CP_7d))
-              , aes(label = CP_7d),
-             x = 0, y = 70, hjust="inward", vjust="inward",
-             inherit.aes = FALSE) +
-
-  theme_classic() +
-  theme(legend.position = 'none')
-
-p
+plotFuncLM(model = case.rate.lm.walking7
+         , forecastLength = 14)
 ```
 
 ![](lme_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
 
 
-```r
-plotDF <- train %>%
-  select(city, day031620, case.rate) %>%
-  mutate(city = as.character(city)) %>%
-  cbind(pred) %>%
-  rename(fitted = fit
-         , lowerCI.fitted = lwr
-         , upperCI.fitted = upr
-         ) %>%
-  reshape::melt(id = c('city', 'day031620')) %>%
-
-  # bring into forecasted case rates
-  rbind(results14 %>%
-          select(city, day031620, case.rate, pred, upperCI, lowerCI) %>%
-          rename(upperCI.pred = upperCI
-                 , lowerCI.pred = lowerCI
-                 ) %>%
-          reshape2::melt(id = c('city', 'day031620'))
-        )
-
-
-p <- ggplot(plotDF
-            , aes(day031620, value, group = variable, colour = variable)) +
-
-  geom_line(data = filter(plotDF, variable == 'case.rate'), linetype = "solid", color = 'black', alpha = 0.6) +
-  geom_line(data = filter(plotDF, variable == 'fitted'), linetype = "solid", color = 'red') +
-  geom_line(data = filter(plotDF, variable == 'pred'), linetype = "dashed", color = 'blue') +
-
-  # uncertainty band for fitted model
-  geom_ribbon(data = filter(plotDF, variable == 'lowerCI.fitted')
-    , aes(ymin = filter(plotDF, variable == 'lowerCI.fitted')$value
-                  , ymax =  filter(plotDF, variable == 'upperCI.fitted')$value
-                  )
-              , alpha = 0.3, color = NA
-              , fill = "red") +
-
-  # prediction band for forecast
-  geom_ribbon(data = filter(plotDF, variable == 'lowerCI.pred')
-    , aes(ymin = filter(plotDF, variable == 'lowerCI.pred')$value
-                  , ymax =  filter(plotDF, variable == 'upperCI.pred')$value
-                  )
-              , alpha = 0.3, color = NA
-              , fill = "blue") +
-
-  facet_wrap(. ~ city, ncol = 2) +
-  ggtitle('Forecast 14 Days') +
-  ylab('Case Rate per 100,000 People') +
-  xlab('Days since March 16, 2020') +
-  #ylim(-15,100) +
-
-  # add performance metrics
-  geom_label(data = metrics %>% mutate(MAPE_14d = paste0("MAPE = ", MAPE_14d))
-             , aes(label = MAPE_14d),
-            x = 0, y = 155, hjust="inward", vjust="inward",
-            inherit.aes = FALSE) +
-  geom_label(data = metrics %>% mutate(MAE_14d = paste0("MAE = ", MAE_14d))
-             , aes(label = MAE_14d),
-            x = 0, y = 125, hjust="inward", vjust="inward",
-            inherit.aes = FALSE) +
-  geom_label(data = metrics %>% mutate(CP_14d = paste0("CP = ", CP_14d))
-              , aes(label = CP_14d),
-             x = 0, y = 70, hjust="inward", vjust="inward",
-             inherit.aes = FALSE) +
-
-  theme_classic() +
-  theme(legend.position = 'none')
-
-p
-```
-
-![](lme_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
 
 
 
+
+
+## Summary Metrics
 
 ```r
 allMetrics %>% select(city, starts_with("MAPE_7d")) %>%
@@ -1153,56 +1033,56 @@ allMetrics %>% select(city, starts_with("MAPE_7d")) %>%
 ```
 
 ```
-##            city MAPE_7d_lme MAPE_7d_lmeWeighted MAPE_7d_lmeWeightedWalking7
-## 1       Atlanta        0.24                0.36                        0.38
-## 2     Baltimore        0.18                0.15                        0.14
-## 3        Boston        0.26                0.28                        0.28
-## 4       Chicago        0.33                0.33                        0.33
-## 5     Cleveland        0.28                0.21                        0.21
-## 6        Dallas        0.28                0.30                        0.31
-## 7        Denver        0.24                0.24                        0.24
-## 8       Houston        0.19                0.24                        0.25
-## 9  Indianapolis        0.21                0.18                        0.18
-## 10       London        0.15                0.19                        0.19
-## 11  Los Angeles        0.18                0.16                        0.15
-## 12      Memphis        0.51                0.53                        0.54
-## 13        Miami        0.25                0.26                        0.25
-## 14     Montreal        0.16                0.12                        0.12
-## 15     New York        0.15                0.15                        0.15
-## 16     Oklahoma        0.30                0.30                        0.30
-## 17      Phoenix        0.37                0.36                        0.35
-## 18   Pittsburgh        0.15                0.13                        0.13
-## 19     Portland        0.29                0.30                        0.29
-## 20   Sacramento        1.01                1.21                        1.23
-## 21      Seattle        0.42                0.48                        0.48
-## 22    Stockholm        0.17                0.10                        0.10
-## 23        Tampa        0.23                0.23                        0.23
-## 24      Toronto        0.12                0.10                        0.11
-##    MAPE_7d_lm MAPE_7d_lmWalking7
-## 1        0.34               0.34
-## 2        0.17               0.17
-## 3        0.28               0.28
-## 4        0.33               0.33
-## 5        0.25               0.24
-## 6        0.28               0.28
-## 7        0.24               0.23
-## 8        0.20               0.22
-## 9        0.21               0.20
-## 10       0.16               0.17
-## 11       0.18               0.17
-## 12       0.51               0.51
-## 13       0.23               0.23
-## 14       0.16               0.15
-## 15       0.16               0.16
-## 16       0.28               0.28
-## 17       0.37               0.37
-## 18       0.13               0.13
-## 19       0.28               0.28
-## 20       1.12               1.15
-## 21       0.45               0.45
-## 22       0.15               0.16
-## 23       0.22               0.23
-## 24       0.12               0.12
+##            city MAPE_7d_lme MAPE_7d_lmeWt MAPE_7d_lmeWtWk7 MAPE_7d_lm
+## 1       Atlanta        0.48          0.31             0.32       0.32
+## 2     Baltimore        0.26          0.19             0.18       0.24
+## 3        Boston        0.36          0.36             0.36       0.36
+## 4       Chicago        0.75          0.71             0.71       0.76
+## 5     Cleveland        0.46          0.35             0.34       0.41
+## 6        Dallas        0.19          0.22             0.22       0.18
+## 7        Denver        0.27          0.22             0.23       0.30
+## 8       Houston        0.31          0.24             0.25       0.17
+## 9  Indianapolis        0.31          0.28             0.28       0.31
+## 10       London        0.35          0.27             0.28       0.33
+## 11  Los Angeles        0.24          0.23             0.22       0.25
+## 12      Memphis        0.47          0.45             0.44       0.48
+## 13        Miami        0.36          0.35             0.38       0.46
+## 14     Montreal        0.16          0.10             0.09       0.21
+## 15     New York        0.12          0.19             0.20       0.18
+## 16     Oklahoma        0.38          0.31             0.31       0.40
+## 17      Phoenix        0.40          0.41             0.40       0.40
+## 18   Pittsburgh        0.23          0.16             0.16       0.18
+## 19     Portland        0.38          0.32             0.32       0.33
+## 20   Sacramento        0.69          0.71             0.75       0.74
+## 21      Seattle        0.51          0.50             0.49       0.49
+## 22    Stockholm        0.46          0.32             0.32       0.42
+## 23        Tampa        0.30          0.27             0.28       0.34
+## 24      Toronto        0.16          0.19             0.20       0.12
+##    MAPE_7d_lmWk7
+## 1           0.30
+## 2           0.22
+## 3           0.37
+## 4           0.76
+## 5           0.39
+## 6           0.19
+## 7           0.30
+## 8           0.20
+## 9           0.30
+## 10          0.35
+## 11          0.24
+## 12          0.46
+## 13          0.47
+## 14          0.16
+## 15          0.21
+## 16          0.40
+## 17          0.40
+## 18          0.17
+## 19          0.32
+## 20          0.80
+## 21          0.48
+## 22          0.42
+## 23          0.34
+## 24          0.14
 ```
 
 
@@ -1214,56 +1094,31 @@ allMetrics %>% select(city, starts_with("MAE_7d")) %>%
 ```
 
 ```
-##            city MAE_7d_lme MAE_7d_lmeWeighted MAE_7d_lmeWeightedWalking7
-## 1       Atlanta       6.17               6.88                       7.18
-## 2     Baltimore       4.02               3.25                       3.18
-## 3        Boston       5.35               5.25                       5.34
-## 4       Chicago      30.44              29.38                      29.36
-## 5     Cleveland       8.46               5.96                       5.87
-## 6        Dallas       7.87               7.95                       7.99
-## 7        Denver      13.37              13.12                      13.13
-## 8       Houston       2.30               2.48                       2.58
-## 9  Indianapolis       9.19               7.55                       7.46
-## 10       London       4.12               4.59                       4.63
-## 11  Los Angeles       2.74               2.41                       2.36
-## 12      Memphis      13.23              12.97                      13.21
-## 13        Miami       7.83               7.92                       7.85
-## 14     Montreal       0.92               0.73                       0.75
-## 15     New York       1.84               1.89                       1.88
-## 16     Oklahoma      21.09              20.37                      19.94
-## 17      Phoenix       6.64               6.27                       6.22
-## 18   Pittsburgh       3.19               2.65                       2.58
-## 19     Portland       5.12               4.72                       4.70
-## 20   Sacramento       6.21               6.79                       6.76
-## 21      Seattle       6.30               6.45                       6.46
-## 22    Stockholm       6.77               4.22                       4.23
-## 23        Tampa       4.74               4.71                       4.76
-## 24      Toronto       0.82               0.75                       0.77
-##    MAE_7d_lm MAE_7d_lmWalking7
-## 1       6.87              6.96
-## 2       3.86              3.67
-## 3       5.52              5.51
-## 4      30.56             30.55
-## 5       7.43              7.10
-## 6       7.74              7.79
-## 7      13.67             13.62
-## 8       2.14              2.32
-## 9       9.18              8.98
-## 10      4.30              4.35
-## 11      2.84              2.74
-## 12     13.34             13.23
-## 13      7.58              7.61
-## 14      0.93              0.90
-## 15      1.98              2.00
-## 16     20.19             20.08
-## 17      6.94              6.85
-## 18      2.82              2.65
-## 19      4.74              4.68
-## 20      6.43              6.40
-## 21      6.18              6.19
-## 22      6.02              6.08
-## 23      4.70              4.74
-## 24      0.84              0.87
+##            city MAE_7d_lme MAE_7d_lmeWt MAE_7d_lmeWtWk7 MAE_7d_lm MAE_7d_lmWk7
+## 1       Atlanta      11.27         6.32            6.44      7.13         6.68
+## 2     Baltimore       6.18         4.51            4.31      5.70         5.30
+## 3        Boston       7.76         6.56            6.61      7.51         7.66
+## 4       Chicago      62.24        58.81           59.09     62.57        62.68
+## 5     Cleveland      15.35        11.25           11.06     13.65        12.88
+## 6        Dallas       6.94         6.12            6.21      6.66         6.74
+## 7        Denver      16.53        12.71           12.90     18.82        18.79
+## 8       Houston       3.73         2.38            2.47      1.76         1.95
+## 9  Indianapolis      15.09        11.95           11.79     14.90        14.58
+## 10       London       8.51         6.55            6.74      8.14         8.62
+## 11  Los Angeles       4.07         4.01            3.83      4.37         4.22
+## 12      Memphis      12.80        10.90           10.86     13.69        13.05
+## 13        Miami      11.61        11.35           12.21     14.63        14.70
+## 14     Montreal       0.95         0.59            0.54      1.24         0.96
+## 15     New York       1.50         2.45            2.59      2.27         2.69
+## 16     Oklahoma      17.62        15.32           15.09     18.43        18.56
+## 17      Phoenix       6.94         6.57            6.54      7.70         7.61
+## 18   Pittsburgh       4.88         3.10            3.04      3.78         3.55
+## 19     Portland       7.31         5.69            5.63      5.99         5.86
+## 20   Sacramento       7.07         7.42            7.02      6.55         6.24
+## 21      Seattle       8.94         7.44            7.41      7.74         7.63
+## 22    Stockholm      17.44        12.36           12.33     16.17        16.17
+## 23        Tampa       6.32         5.78            5.99      7.17         7.14
+## 24      Toronto       1.21         1.43            1.54      0.90         1.03
 ```
 
 
@@ -1275,56 +1130,31 @@ allMetrics %>% select(city, starts_with("CP_7d")) %>%
 ```
 
 ```
-##            city CP_7d_lme CP_7d_lmeWeighted CP_7d_lmeWeightedWalking7 CP_7d_lm
-## 1       Atlanta      0.71              0.14                      0.14     0.86
-## 2     Baltimore      1.00              0.43                      0.43     1.00
-## 3        Boston      1.00              0.29                      0.29     1.00
-## 4       Chicago      0.43              0.00                      0.14     0.43
-## 5     Cleveland      0.57              0.29                      0.29     1.00
-## 6        Dallas      0.71              0.43                      0.43     0.71
-## 7        Denver      0.57              0.00                      0.00     0.57
-## 8       Houston      1.00              0.57                      0.57     1.00
-## 9  Indianapolis      0.57              0.43                      0.43     0.57
-## 10       London      0.86              0.43                      0.43     0.86
-## 11  Los Angeles      1.00              0.57                      0.57     1.00
-## 12      Memphis      0.57              0.14                      0.14     0.57
-## 13        Miami      0.71              0.14                      0.29     0.71
-## 14     Montreal      1.00              1.00                      1.00     1.00
-## 15     New York      1.00              0.71                      0.71     1.00
-## 16     Oklahoma      0.57              0.00                      0.00     0.57
-## 17      Phoenix      1.00              0.14                      0.14     1.00
-## 18   Pittsburgh      1.00              0.57                      0.57     1.00
-## 19     Portland      0.86              0.29                      0.29     1.00
-## 20   Sacramento      0.86              0.29                      0.29     0.86
-## 21      Seattle      1.00              0.14                      0.14     1.00
-## 22    Stockholm      0.86              0.57                      0.57     0.86
-## 23        Tampa      1.00              0.29                      0.29     1.00
-## 24      Toronto      1.00              1.00                      1.00     1.00
-##    CP_7d_lmWalking7
-## 1              0.86
-## 2              1.00
-## 3              1.00
-## 4              0.43
-## 5              1.00
-## 6              0.71
-## 7              0.57
-## 8              1.00
-## 9              0.57
-## 10             0.86
-## 11             1.00
-## 12             0.57
-## 13             0.71
-## 14             1.00
-## 15             1.00
-## 16             0.57
-## 17             1.00
-## 18             1.00
-## 19             1.00
-## 20             0.86
-## 21             1.00
-## 22             0.86
-## 23             1.00
-## 24             1.00
+##            city CP_7d_lme CP_7d_lmeWt CP_7d_lmeWtWk7 CP_7d_lm CP_7d_lmWk7
+## 1       Atlanta      0.57        0.14           0.14     0.71        0.71
+## 2     Baltimore      0.71        0.57           0.43     0.71        0.86
+## 3        Boston      0.71        0.14           0.14     0.86        0.86
+## 4       Chicago      0.00        0.00           0.00     0.00        0.00
+## 5     Cleveland      0.43        0.14           0.14     0.57        0.57
+## 6        Dallas      0.86        0.43           0.43     0.86        0.86
+## 7        Denver      0.43        0.00           0.00     0.29        0.29
+## 8       Houston      1.00        0.43           0.43     1.00        1.00
+## 9  Indianapolis      0.43        0.00           0.00     0.43        0.43
+## 10       London      0.86        0.14           0.14     0.86        0.86
+## 11  Los Angeles      1.00        0.29           0.29     1.00        1.00
+## 12      Memphis      0.57        0.29           0.14     0.57        0.57
+## 13        Miami      0.57        0.00           0.00     0.43        0.43
+## 14     Montreal      1.00        1.00           1.00     1.00        1.00
+## 15     New York      1.00        0.71           0.57     1.00        1.00
+## 16     Oklahoma      0.43        0.29           0.29     0.43        0.43
+## 17      Phoenix      1.00        0.14           0.14     0.86        0.86
+## 18   Pittsburgh      0.86        0.43           0.43     0.86        1.00
+## 19     Portland      0.86        0.14           0.14     1.00        1.00
+## 20   Sacramento      0.86        0.14           0.14     0.86        0.86
+## 21      Seattle      0.71        0.00           0.00     1.00        1.00
+## 22    Stockholm      0.14        0.14           0.14     0.14        0.14
+## 23        Tampa      1.00        0.14           0.14     1.00        1.00
+## 24      Toronto      1.00        1.00           0.86     1.00        1.00
 ```
 
 
@@ -1338,56 +1168,56 @@ allMetrics %>% select(city, starts_with("MAPE_14d")) %>%
 ```
 
 ```
-##            city MAPE_14d_lme MAPE_14d_lmeWeighted MAPE_14d_lmeWeightedWalking7
-## 1       Atlanta         0.24                 0.33                         0.33
-## 2     Baltimore         0.18                 0.15                         0.15
-## 3        Boston         0.27                 0.27                         0.27
-## 4       Chicago         0.25                 0.25                         0.25
-## 5     Cleveland         0.24                 0.17                         0.17
-## 6        Dallas         0.26                 0.26                         0.26
-## 7        Denver         0.22                 0.21                         0.21
-## 8       Houston         0.23                 0.26                         0.26
-## 9  Indianapolis         0.21                 0.20                         0.20
-## 10       London         0.16                 0.18                         0.18
-## 11  Los Angeles         0.20                 0.18                         0.18
-## 12      Memphis         0.48                 0.48                         0.49
-## 13        Miami         0.39                 0.40                         0.39
-## 14     Montreal         0.13                 0.10                         0.10
-## 15     New York         0.15                 0.16                         0.16
-## 16     Oklahoma          Inf                  Inf                          Inf
-## 17      Phoenix         0.37                 0.37                         0.37
-## 18   Pittsburgh         0.16                 0.13                         0.13
-## 19     Portland         0.23                 0.26                         0.26
-## 20   Sacramento         0.95                 1.14                         1.16
-## 21      Seattle         0.32                 0.39                         0.39
-## 22    Stockholm         0.18                 0.09                         0.09
-## 23        Tampa         0.27                 0.28                         0.28
-## 24      Toronto         0.11                 0.12                         0.12
-##    MAPE_14d_lm MAPE_14d_lmWalking7
-## 1         0.30                0.30
-## 2         0.17                0.17
-## 3         0.27                0.27
-## 4         0.25                0.25
-## 5         0.21                0.21
-## 6         0.25                0.26
-## 7         0.22                0.22
-## 8         0.23                0.24
-## 9         0.21                0.20
-## 10        0.17                0.17
-## 11        0.21                0.21
-## 12        0.48                0.48
-## 13        0.37                0.37
-## 14        0.13                0.13
-## 15        0.16                0.16
-## 16         Inf                 Inf
-## 17        0.36                0.35
-## 18        0.13                0.13
-## 19        0.24                0.24
-## 20        1.05                1.08
-## 21        0.35                0.35
-## 22        0.16                0.16
-## 23        0.26                0.26
-## 24        0.13                0.13
+##            city MAPE_14d_lme MAPE_14d_lmeWt MAPE_14d_lmeWtWk7 MAPE_14d_lm
+## 1       Atlanta         0.58           0.29              0.29        0.33
+## 2     Baltimore         0.41           0.29              0.27        0.38
+## 3        Boston         0.44           0.36              0.37        0.42
+## 4       Chicago         0.79           0.74              0.74        0.80
+## 5     Cleveland         0.62           0.48              0.47        0.57
+## 6        Dallas         0.39           0.26              0.27        0.37
+## 7        Denver         0.43           0.31              0.32        0.48
+## 8       Houston         0.49           0.25              0.25        0.26
+## 9  Indianapolis         0.49           0.37              0.36        0.49
+## 10       London         0.44           0.32              0.33        0.43
+## 11  Los Angeles         0.32           0.31              0.29        0.35
+## 12      Memphis         0.50           0.41              0.41        0.54
+## 13        Miami         0.35           0.36              0.38        0.49
+## 14     Montreal         0.12           0.08              0.07        0.21
+## 15     New York         0.19           0.30              0.32        0.29
+## 16     Oklahoma         0.54           0.47              0.46        0.56
+## 17      Phoenix         0.37           0.36              0.36        0.41
+## 18   Pittsburgh         0.44           0.29              0.28        0.37
+## 19     Portland         0.52           0.38              0.38        0.42
+## 20   Sacramento         0.70           0.73              0.76        0.73
+## 21      Seattle         0.56           0.43              0.42        0.47
+## 22    Stockholm         0.59           0.43              0.43        0.55
+## 23        Tampa         0.31           0.29              0.30        0.37
+## 24      Toronto         0.15           0.17              0.17        0.22
+##    MAPE_14d_lmWk7
+## 1            0.30
+## 2            0.35
+## 3            0.43
+## 4            0.80
+## 5            0.54
+## 6            0.36
+## 7            0.48
+## 8            0.24
+## 9            0.47
+## 10           0.46
+## 11           0.33
+## 12           0.50
+## 13           0.49
+## 14           0.13
+## 15           0.34
+## 16           0.56
+## 17           0.40
+## 18           0.35
+## 19           0.41
+## 20           0.78
+## 21           0.46
+## 22           0.56
+## 23           0.36
+## 24           0.19
 ```
 
 
@@ -1399,56 +1229,56 @@ allMetrics %>% select(city, starts_with("MAE_14d")) %>%
 ```
 
 ```
-##            city MAE_14d_lme MAE_14d_lmeWeighted MAE_14d_lmeWeightedWalking7
-## 1       Atlanta        6.86                7.50                        7.60
-## 2     Baltimore        4.76                3.68                        3.61
-## 3        Boston        6.22                5.68                        5.74
-## 4       Chicago       23.14               21.88                       21.89
-## 5     Cleveland        9.97                6.80                        6.77
-## 6        Dallas        8.72                8.21                        8.21
-## 7        Denver       15.86               15.08                       15.10
-## 8       Houston        4.09                4.05                        4.07
-## 9  Indianapolis       12.46               11.30                       11.20
-## 10       London        4.56                4.52                        4.53
-## 11  Los Angeles        3.82                3.34                        3.30
-## 12      Memphis       16.03               15.22                       15.47
-## 13        Miami       11.46               11.60                       11.57
-## 14     Montreal        0.85                0.66                        0.68
-## 15     New York        2.40                2.45                        2.47
-## 16     Oklahoma       21.90               19.66                       18.95
-## 17      Phoenix        8.96                8.97                        8.92
-## 18   Pittsburgh        4.43                3.46                        3.41
-## 19     Portland        5.20                5.43                        5.40
-## 20   Sacramento        7.28                7.74                        7.74
-## 21      Seattle        5.98                6.60                        6.59
-## 22    Stockholm        8.00                4.18                        4.30
-## 23        Tampa        5.08                5.16                        5.19
-## 24      Toronto        0.79                0.87                        0.88
-##    MAE_14d_lm MAE_14d_lmWalking7
-## 1        7.29               7.27
-## 2        4.48               4.30
-## 3        6.20               6.23
-## 4       23.42              23.52
-## 5        8.59               8.39
-## 6        8.60               8.54
-## 7       16.32              16.33
-## 8        3.73               3.85
-## 9       12.36              12.23
-## 10       4.54               4.70
-## 11       3.92               3.87
-## 12      16.25              16.11
-## 13      11.24              11.25
-## 14       0.85               0.86
-## 15       2.65               2.69
-## 16      20.46              20.37
-## 17       9.11               9.01
-## 18       3.65               3.54
-## 19       5.12               5.09
-## 20       7.40               7.38
-## 21       6.14               6.13
-## 22       7.02               7.22
-## 23       5.04               5.08
-## 24       0.95               0.94
+##            city MAE_14d_lme MAE_14d_lmeWt MAE_14d_lmeWtWk7 MAE_14d_lm
+## 1       Atlanta       14.43          6.72             6.75       8.65
+## 2     Baltimore       11.15          8.03             7.51      10.41
+## 3        Boston       12.08          9.05             9.15      11.48
+## 4       Chicago       68.45         64.14            64.51      69.37
+## 5     Cleveland       28.91         22.34            21.86      26.48
+## 6        Dallas       15.37          9.62             9.64      14.80
+## 7        Denver       32.93         24.20            24.54      37.38
+## 8       Houston        8.44          4.12             4.06       4.66
+## 9  Indianapolis       30.87         22.67            22.26      30.67
+## 10       London       12.25          8.90             9.27      11.75
+## 11  Los Angeles        6.69          6.49             6.12       7.24
+## 12      Memphis       20.14         15.70            15.70      21.91
+## 13        Miami       12.22         12.54            13.48      16.71
+## 14     Montreal        0.75          0.53             0.51       1.37
+## 15     New York        3.50          5.20             5.49       5.16
+## 16     Oklahoma       29.87         26.49            25.91      31.22
+## 17      Phoenix        9.68          8.73             8.72      11.47
+## 18   Pittsburgh       12.78          8.21             8.14      10.79
+## 19     Portland       11.90          8.56             8.45       9.64
+## 20   Sacramento       10.32         10.58             9.86       9.37
+## 21      Seattle       11.46          8.16             8.10       9.24
+## 22    Stockholm       27.17         19.93            20.00      25.59
+## 23        Tampa        6.72          6.35             6.53       8.01
+## 24      Toronto        1.05          1.24             1.25       1.49
+##    MAE_14d_lmWk7
+## 1           7.90
+## 2           9.57
+## 3          11.82
+## 4          69.40
+## 5          25.02
+## 6          14.27
+## 7          37.19
+## 8           4.21
+## 9          29.94
+## 10         12.56
+## 11          6.99
+## 12         20.54
+## 13         16.74
+## 14          0.86
+## 15          5.88
+## 16         30.94
+## 17         11.31
+## 18         10.25
+## 19          9.45
+## 20          8.70
+## 21          9.07
+## 22         25.78
+## 23          7.86
+## 24          1.33
 ```
 
 
@@ -1460,54 +1290,30 @@ allMetrics %>% select(city, starts_with("CP_14d")) %>%
 ```
 
 ```
-##            city CP_14d_lme CP_14d_lmeWeighted CP_14d_lmeWeightedWalking7
-## 1       Atlanta       0.79               0.21                       0.21
-## 2     Baltimore       0.93               0.50                       0.50
-## 3        Boston       1.00               0.29                       0.29
-## 4       Chicago       0.36               0.07                       0.14
-## 5     Cleveland       0.57               0.29                       0.29
-## 6        Dallas       0.79               0.29                       0.29
-## 7        Denver       0.43               0.07                       0.07
-## 8       Houston       0.93               0.43                       0.43
-## 9  Indianapolis       0.50               0.21                       0.21
-## 10       London       0.86               0.50                       0.50
-## 11  Los Angeles       0.93               0.50                       0.57
-## 12      Memphis       0.50               0.14                       0.14
-## 13        Miami       0.50               0.07                       0.14
-## 14     Montreal       1.00               1.00                       1.00
-## 15     New York       1.00               0.64                       0.64
-## 16     Oklahoma       0.43               0.07                       0.07
-## 17      Phoenix       0.93               0.14                       0.14
-## 18   Pittsburgh       1.00               0.50                       0.50
-## 19     Portland       0.86               0.29                       0.29
-## 20   Sacramento       0.79               0.21                       0.21
-## 21      Seattle       0.93               0.07                       0.07
-## 22    Stockholm       0.93               0.43                       0.43
-## 23        Tampa       1.00               0.21                       0.21
-## 24      Toronto       1.00               1.00                       1.00
-##    CP_14d_lm CP_14d_lmWalking7
-## 1       0.86              0.86
-## 2       0.93              1.00
-## 3       1.00              1.00
-## 4       0.43              0.43
-## 5       0.86              0.86
-## 6       0.79              0.79
-## 7       0.43              0.43
-## 8       1.00              1.00
-## 9       0.50              0.50
-## 10      0.86              0.86
-## 11      0.93              0.93
-## 12      0.50              0.50
-## 13      0.50              0.50
-## 14      1.00              1.00
-## 15      1.00              1.00
-## 16      0.50              0.50
-## 17      0.93              0.93
-## 18      1.00              1.00
-## 19      0.93              0.93
-## 20      0.79              0.79
-## 21      1.00              0.93
-## 22      0.93              0.93
-## 23      1.00              1.00
-## 24      1.00              1.00
+##            city CP_14d_lme CP_14d_lmeWt CP_14d_lmeWtWk7 CP_14d_lm CP_14d_lmWk7
+## 1       Atlanta       0.43         0.14            0.21      0.71         0.71
+## 2     Baltimore       0.50         0.29            0.21      0.57         0.64
+## 3        Boston       0.43         0.07            0.07      0.57         0.57
+## 4       Chicago       0.00         0.00            0.00      0.00         0.00
+## 5     Cleveland       0.21         0.07            0.07      0.29         0.29
+## 6        Dallas       0.43         0.21            0.21      0.43         0.43
+## 7        Denver       0.21         0.00            0.00      0.14         0.14
+## 8       Houston       0.71         0.43            0.43      0.86         0.86
+## 9  Indianapolis       0.21         0.00            0.00      0.21         0.21
+## 10       London       0.57         0.07            0.07      0.57         0.57
+## 11  Los Angeles       0.93         0.21            0.21      0.93         0.93
+## 12      Memphis       0.43         0.29            0.21      0.43         0.43
+## 13        Miami       0.57         0.07            0.07      0.43         0.43
+## 14     Montreal       1.00         1.00            1.00      1.00         1.00
+## 15     New York       1.00         0.43            0.29      0.93         0.93
+## 16     Oklahoma       0.21         0.14            0.14      0.21         0.21
+## 17      Phoenix       0.86         0.29            0.21      0.71         0.71
+## 18   Pittsburgh       0.43         0.21            0.21      0.57         0.64
+## 19     Portland       0.57         0.07            0.07      0.79         0.79
+## 20   Sacramento       0.64         0.07            0.07      0.71         0.71
+## 21      Seattle       0.57         0.07            0.07      0.79         0.86
+## 22    Stockholm       0.07         0.07            0.07      0.07         0.07
+## 23        Tampa       0.93         0.07            0.07      0.93         0.93
+## 24      Toronto       1.00         1.00            0.93      1.00         1.00
 ```
+

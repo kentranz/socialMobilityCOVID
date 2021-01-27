@@ -230,12 +230,42 @@ plot(alldata.groupedR,
   
 
 ``` {r trainTest}
+
+cutOff <- as.Date("2020-10-31")
+
 train <- alldata.groupedR %>% 
-  filter(day031620 >= 0 & as.Date(date) <= as.Date("2020-10-31"))
+  filter(day031620 >= 0 & as.Date(date) <= cutOff)
+
+
 test7 <- alldata.groupedR %>% 
-  filter(day031620 >= 0 & as.Date(date) > as.Date("2020-10-31") & as.Date(date) <= as.Date("2020-11-07"))
+  filter(day031620 >= 0 & as.Date(date) > cutOff & as.Date(date) <= (cutOff + 7)) %>%
+  select(city, day031620, date, weekend, case.rate, casesTminus1.rate, casesTminus2.rate, walkingMinus7, walkingMinus14) %>%
+  
+  # retained lag case rates for first 2 days only, zero out the rest
+  mutate(
+    casesTminus1.rate = case_when(as.Date(date) == (cutOff + 1) ~ casesTminus1.rate
+                                    , TRUE ~ 0
+                                  ) 
+    , casesTminus2.rate = case_when(as.Date(date) == (cutOff + 1) | as.Date(date) == (cutOff + 2) ~ casesTminus2.rate
+                                    , TRUE ~ 0
+                                  ) 
+  )
+  
+  
 test14 <- alldata.groupedR %>% 
-  filter(day031620 >= 0 & as.Date(date) > as.Date("2020-10-31"))
+  filter(day031620 >= 0 & as.Date(date) > cutOff) %>%
+  select(city, day031620, date, weekend, case.rate, casesTminus1.rate, casesTminus2.rate, walkingMinus7, walkingMinus14) %>%
+  
+  # retained lag case rates for first 2 days only, zero out the rest
+  mutate(
+    casesTminus1.rate = case_when(as.Date(date) == (cutOff + 1) ~ casesTminus1.rate
+                                    , TRUE ~ 0
+                                  ) 
+    , casesTminus2.rate = case_when(as.Date(date) == (cutOff + 1) | as.Date(date) == (cutOff + 2) ~ casesTminus2.rate
+                                    , TRUE ~ 0
+                                  ) 
+  )
+
 
 nrow(train)
 nrow(test7)
@@ -243,7 +273,47 @@ nrow(test14)
 ```
   
 
+
+
+
+
 ## Automate extracting 95% CI for prediction band, metrics, and plotting
+
+Predict one day at a time, feedforward the prediction as lag case.rate. 
+
+```{r forecastFunc}
+
+forecastLME <- function(model, test) # provide model obj and test set
+{
+  for (i in 1:nrow(test))
+  {
+    
+    pred <- predict(model, newdata = test[i,])
+    test[i, 'pred'] <- pred
+    
+    # if second day or later, use pred case.rate as lag-1
+    if ( i <= (nrow(test)-1) & as.Date(test[i+1,'date']) > cutOff+1)
+    {
+      test[i+1, 'casesTminus1.rate'] <- pred
+    }
+    
+    # if third day or later, use pred case.rate as lag-2
+    if (i <= (nrow(test)-2) & as.Date(test[i+2,'date']) > (cutOff + 2))
+    {
+      test[i+2, 'casesTminus2.rate'] <- pred
+    }
+  
+  }
+  
+  return(test)
+}
+
+#forecast(model = case.rate.lme20201031
+#         , test = test14
+#         )
+
+```
+
 
 Extract 95% CI for prediction band. References from the web:
 
@@ -255,16 +325,13 @@ SE: This approach takes into account the uncertainty of the random effect in the
 SE2: This takes into account both random effect uncertainty and within-group error
 
 
+
 ``` {r resultsFunc}
+#model <- case.rate.lme20201031
 
-
-metricsFunc <- function(model)
+metricsFuncLME <- function(model)
 {
-  # store all X and y in a new dataframe, filtering out unwanted dates
-  results7 <- test7 %>%
-    select(city, day031620, case.rate, casesTminus1.rate, casesTminus2.rate, weekend, walkingMinus7)
-    
-  results7$pred <- predict(model, newdata = results7)
+  results7 <- forecastLME(model, test = test7)
   
   # create design mateix
   # [-2] drops response from formula
@@ -277,10 +344,8 @@ metricsFunc <- function(model)
   results7$SE2 <- sqrt(predvar + model$sigma^2) # sigma is the estimated within-group error standard deviation
   
   
-  results14 <- test14 %>%
-    select(city, day031620, case.rate, casesTminus1.rate, casesTminus2.rate, weekend, walkingMinus7)
-    
-  results14$pred <- predict(model, newdata = results14)
+  results14 <- forecastLME(model, test = test14)
+  
   Designmat <- model.matrix(formula(model)[-2], results14)
   predvar <- diag(Designmat %*% vcov(model) %*% t(Designmat)) 
   results14$SE <- sqrt(predvar) 
@@ -323,9 +388,7 @@ metricsFunc <- function(model)
 
 
 
-
-
-plotFunc <- function(model
+plotFuncLME <- function(model
                      , forecastLength # only 7 or 14 as numeric arg
                      )
 {
@@ -382,7 +445,7 @@ plotFunc <- function(model
     
     geom_line(data = filter(plotDF, variable == 'case.rate'), linetype = "solid", color = 'black', alpha = 0.6) + 
     geom_line(data = filter(plotDF, variable == 'fitted'), linetype = "solid", color = 'red') +
-    geom_line(data = filter(plotDF, variable == 'pred'), linetype = "dashed", color = 'blue') +
+    geom_line(data = filter(plotDF, variable == 'pred'), linetype = "solid", color = 'blue') +
     
     # uncertainty band for fitted model
     geom_ribbon(data = filter(plotDF, variable == 'lowerCI.fitted')
@@ -448,17 +511,17 @@ summary(case.rate.lme20201031)
 
 ``` {r fig.width=10, fig.height=30}
 
-output <- metricsFunc(model = case.rate.lme20201031)
+output <- metricsFuncLME(model = case.rate.lme20201031)
 
 allMetrics <- output$performMetrics %>%
   rename_at(vars(-city), function(x) {paste0(x, "_lme")})
 
-plotFunc(model = case.rate.lme20201031
+plotFuncLME(model = case.rate.lme20201031
          , forecastLength = 7)
 ```
 ``` {r fig.width=10, fig.height=30}
 
-plotFunc(model = case.rate.lme20201031
+plotFuncLME(model = case.rate.lme20201031
          , forecastLength = 14)
 ```
 
@@ -479,21 +542,21 @@ summary(case.rate.lme20201031.reweighed)
 ```
 ``` {r fig.width=10, fig.height=30}
 
-output <- metricsFunc(model = case.rate.lme20201031.reweighed)
+output <- metricsFuncLME(model = case.rate.lme20201031.reweighed)
 
 allMetrics <- allMetrics %>% left_join(
     output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmeWeighted")})
+      rename_at(vars(-city), function(x) {paste0(x, "_lmeWt")})
     , by = "city"
     )
 
 
-plotFunc(model = case.rate.lme20201031.reweighed
+plotFuncLME(model = case.rate.lme20201031.reweighed
          , forecastLength = 7)
 ```
 ``` {r fig.width=10, fig.height=30}
 
-plotFunc(model = case.rate.lme20201031.reweighed
+plotFuncLME(model = case.rate.lme20201031.reweighed
          , forecastLength = 14)
 ```
 
@@ -513,26 +576,187 @@ summary(case.rate.lme20201031.reweighed.walking7)
 ```
 ``` {r fig.width=10, fig.height=30}
 
-output <- metricsFunc(model = case.rate.lme20201031.reweighed.walking7)
+output <- metricsFuncLME(model = case.rate.lme20201031.reweighed.walking7)
 
 allMetrics <- allMetrics %>% left_join(
     output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmeWeightedWalking7")})
+      rename_at(vars(-city), function(x) {paste0(x, "_lmeWtWk7")})
     , by = "city"
     )
 
 
-plotFunc(model = case.rate.lme20201031.reweighed.walking7
+plotFuncLME(model = case.rate.lme20201031.reweighed.walking7
          , forecastLength = 7)
 ```
 
 ``` {r fig.width=10, fig.height=30}
 
-plotFunc(model = case.rate.lme20201031.reweighed.walking7
+plotFuncLME(model = case.rate.lme20201031.reweighed.walking7
          , forecastLength = 14)
 ```
 
 ## Naive Multiple Regression
+
+Automate some functions specific to LM object
+```{r}
+forecastLM <- function(model, test) # provide model obj and test set
+{
+  for (i in 1:nrow(test))
+  {
+    
+    pred <- predict(model, newdata = test[i,], interval = "prediction", level = 0.95) %>% as.data.frame()
+    test[i, 'pred'] <- pred$fit
+    test[i, 'lowerCI'] <- pred$lwr
+    test[i, 'upperCI'] <- pred$upr
+    
+    
+    # if second day or later, use pred case.rate as lag-1
+    if ( i <= (nrow(test)-1) & as.Date(test[i+1,'date']) > cutOff+1)
+    {
+      test[i+1, 'casesTminus1.rate'] <- pred$fit
+    }
+    
+    # if third day or later, use pred case.rate as lag-2
+    if (i <= (nrow(test)-2) & as.Date(test[i+2,'date']) > (cutOff + 2))
+    {
+      test[i+2, 'casesTminus2.rate'] <- pred$fit
+    }
+  
+  }
+  
+  return(test)
+}
+
+# 
+# 
+# temp <- forecastLM(model = case.rate.lm
+#         , test = test14
+#         )
+
+
+metricsFuncLM <- function(model)
+{
+  results7 <- forecastLM(model, test = test7)
+  
+  results14 <- forecastLM(model, test = test14)
+  
+  metrics <- results7 %>% 
+    group_by(city) %>% 
+    summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+              , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+              , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+              ) %>%
+    left_join( results14 %>% 
+                 group_by(city) %>% 
+                 summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+                           , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+                           , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+                           )
+               , by = "city"
+               , suffix = c("_7d", "_14d")
+               ) 
+  
+  return(list(performMetrics = metrics
+              , results7 = results7
+              , results14 = results14))
+}
+
+
+
+
+plotFuncLM <- function(model, forecastLength)
+{
+  
+  
+  if(forecastLength == 7)
+  { results = output$results7
+    
+    metrics <- output$performMetrics %>% 
+      select(city, contains("7d"))
+  }
+  
+  if(forecastLength == 14)
+  { results = output$results14
+    
+    metrics <- output$performMetrics %>% 
+      select(city, contains("14d")) 
+  }
+  
+  metrics <- setNames(metrics, gsub("_.*", "", names(metrics)))
+
+  pred <- predict(model, newdata = train, interval = "prediction", level = 0.95)
+
+  plotDF <- train %>% 
+    select(city, day031620, case.rate) %>%
+    mutate(city = as.character(city)) %>%
+    cbind(pred) %>%
+    rename(fitted = fit
+           , lowerCI.fitted = lwr
+           , upperCI.fitted = upr
+           ) %>%
+    reshape::melt(id = c('city', 'day031620')) %>%
+    
+    # bring into forecasted case rates
+    rbind(results %>% 
+            select(city, day031620, case.rate, pred, upperCI, lowerCI) %>% 
+            rename(upperCI.pred = upperCI
+                   , lowerCI.pred = lowerCI
+                   ) %>%
+            reshape2::melt(id = c('city', 'day031620'))
+          ) 
+      
+  
+  p <- ggplot(plotDF 
+              , aes(day031620, value, group = variable, colour = variable)) +
+    
+    geom_line(data = filter(plotDF, variable == 'case.rate'), linetype = "solid", color = 'black', alpha = 0.6) + 
+    geom_line(data = filter(plotDF, variable == 'fitted'), linetype = "solid", color = 'red') +
+    geom_line(data = filter(plotDF, variable == 'pred'), linetype = "solid", color = 'blue') +
+    
+    # uncertainty band for fitted model
+    geom_ribbon(data = filter(plotDF, variable == 'lowerCI.fitted')
+      , aes(ymin = filter(plotDF, variable == 'lowerCI.fitted')$value
+                    , ymax =  filter(plotDF, variable == 'upperCI.fitted')$value
+                    )
+                , alpha = 0.3, color = NA
+                , fill = "red") +
+    
+    # prediction band for forecast
+    geom_ribbon(data = filter(plotDF, variable == 'lowerCI.pred')
+      , aes(ymin = filter(plotDF, variable == 'lowerCI.pred')$value
+                    , ymax =  filter(plotDF, variable == 'upperCI.pred')$value
+                    )
+                , alpha = 0.3, color = NA
+                , fill = "blue") +
+    
+    facet_wrap(. ~ city, ncol = 2) +
+    ggtitle('Forecast 7 Days') +
+    ylab('Case Rate per 100,000 People') +
+    xlab('Days since March 16, 2020') +
+    #ylim(-15,100) +
+    
+    # add performance metrics
+    geom_label(data = metrics %>% mutate(MAPE = paste0("MAPE = ", MAPE))
+               , aes(label = MAPE), 
+              x = 0, y = 155, hjust="inward", vjust="inward",
+              inherit.aes = FALSE) +
+    geom_label(data = metrics %>% mutate(MAE = paste0("MAE = ", MAE))
+               , aes(label = MAE), 
+              x = 0, y = 125, hjust="inward", vjust="inward",
+              inherit.aes = FALSE) +
+    geom_label(data = metrics %>% mutate(CP = paste0("CP = ", CP))
+                , aes(label = CP), 
+               x = 0, y = 70, hjust="inward", vjust="inward",
+               inherit.aes = FALSE) +
+     
+    theme_classic() +
+    theme(legend.position = 'none') 
+    
+  p
+}
+
+```
+
 
 ```{r lm}
 case.rate.lm <- 
@@ -542,190 +766,31 @@ case.rate.lm <-
 
 summary(case.rate.lm)
 ```
+```{r fig.width=10, fig.height=30}
 
-```{r}
-model <- case.rate.lm
-
-results7 <- test7 %>% select(city, day031620, case.rate, casesTminus1.rate, casesTminus2.rate, weekend) 
-pred <- predict(model, newdata = results7, interval = "prediction", level = 0.95) %>% as.data.frame()
-results7$pred <- pred$fit
-results7$upperCI <- pred$upr
-results7$lowerCI <- pred$lwr
-
-results14 <- test14 %>% select(city, day031620, case.rate, casesTminus1.rate, casesTminus2.rate, weekend)
-pred <- predict(model, newdata = results14, interval = "prediction", level = 0.95) %>% as.data.frame()
-results14$pred <- pred$fit
-results14$upperCI <- pred$upr
-results14$lowerCI <- pred$lwr
-
-metrics <- results7 %>% 
-  group_by(city) %>% 
-  summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
-            , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
-            , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
-            ) %>%
-  left_join( results14 %>% 
-               group_by(city) %>% 
-               summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
-                         , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
-                         , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
-                         )
-             , by = "city"
-             , suffix = c("_7d", "_14d")
-             ) 
-#metrics %>% arrange(as.character(city)) %>% as.data.frame() %>% print()
-
+output <- metricsFuncLM(model = case.rate.lm)
 
 allMetrics <- allMetrics %>% left_join(
-    metrics %>%
+    output$performMetrics %>%
       rename_at(vars(-city), function(x) {paste0(x, "_lm")})
     , by = "city"
     )
 
+plotFuncLM(model = case.rate.lm
+         , forecastLength = 7)
+
 
 ```
 
-``` {r fig.width=10, fig.height=30}
 
-pred <- predict(model, newdata = train, interval = "prediction", level = 0.95) 
 
-plotDF <- train %>% 
-  select(city, day031620, case.rate) %>%
-  mutate(city = as.character(city)) %>%
-  cbind(pred) %>%
-  rename(fitted = fit
-         , lowerCI.fitted = lwr
-         , upperCI.fitted = upr
-         ) %>%
-  reshape::melt(id = c('city', 'day031620')) %>%
-  
-  # bring into forecasted case rates
-  rbind(results7 %>% 
-          select(city, day031620, case.rate, pred, upperCI, lowerCI) %>% 
-          rename(upperCI.pred = upperCI
-                 , lowerCI.pred = lowerCI
-                 ) %>%
-          reshape2::melt(id = c('city', 'day031620'))
-        ) 
-    
 
-p <- ggplot(plotDF 
-            , aes(day031620, value, group = variable, colour = variable)) +
-  
-  geom_line(data = filter(plotDF, variable == 'case.rate'), linetype = "solid", color = 'black', alpha = 0.6) + 
-  geom_line(data = filter(plotDF, variable == 'fitted'), linetype = "solid", color = 'red') +
-  geom_line(data = filter(plotDF, variable == 'pred'), linetype = "dashed", color = 'blue') +
-  
-  # uncertainty band for fitted model
-  geom_ribbon(data = filter(plotDF, variable == 'lowerCI.fitted')
-    , aes(ymin = filter(plotDF, variable == 'lowerCI.fitted')$value
-                  , ymax =  filter(plotDF, variable == 'upperCI.fitted')$value
-                  )
-              , alpha = 0.3, color = NA
-              , fill = "red") +
-  
-  # prediction band for forecast
-  geom_ribbon(data = filter(plotDF, variable == 'lowerCI.pred')
-    , aes(ymin = filter(plotDF, variable == 'lowerCI.pred')$value
-                  , ymax =  filter(plotDF, variable == 'upperCI.pred')$value
-                  )
-              , alpha = 0.3, color = NA
-              , fill = "blue") +
-  
-  facet_wrap(. ~ city, ncol = 2) +
-  ggtitle('Forecast 7 Days') +
-  ylab('Case Rate per 100,000 People') +
-  xlab('Days since March 16, 2020') +
-  #ylim(-15,100) +
-  
-  # add performance metrics
-  geom_label(data = metrics %>% mutate(MAPE_7d = paste0("MAPE = ", MAPE_7d))
-             , aes(label = MAPE_7d), 
-            x = 0, y = 155, hjust="inward", vjust="inward",
-            inherit.aes = FALSE) +
-  geom_label(data = metrics %>% mutate(MAE_7d = paste0("MAE = ", MAE_7d))
-             , aes(label = MAE_7d), 
-            x = 0, y = 125, hjust="inward", vjust="inward",
-            inherit.aes = FALSE) +
-  geom_label(data = metrics %>% mutate(CP_7d = paste0("CP = ", CP_7d))
-              , aes(label = CP_7d), 
-             x = 0, y = 70, hjust="inward", vjust="inward",
-             inherit.aes = FALSE) +
-   
-  theme_classic() +
-  theme(legend.position = 'none') 
-  
-p
+```{r fig.width=10, fig.height=30}
+plotFuncLM(model = case.rate.lm
+         , forecastLength = 14)
 ```
-``` {r fig.width=10, fig.height=30}
-plotDF <- train %>% 
-  select(city, day031620, case.rate) %>%
-  mutate(city = as.character(city)) %>%
-  cbind(pred) %>%
-  rename(fitted = fit
-         , lowerCI.fitted = lwr
-         , upperCI.fitted = upr
-         ) %>%
-  reshape::melt(id = c('city', 'day031620')) %>%
-  
-  # bring into forecasted case rates
-  rbind(results14 %>% 
-          select(city, day031620, case.rate, pred, upperCI, lowerCI) %>% 
-          rename(upperCI.pred = upperCI
-                 , lowerCI.pred = lowerCI
-                 ) %>%
-          reshape2::melt(id = c('city', 'day031620'))
-        ) 
-    
 
-p <- ggplot(plotDF 
-            , aes(day031620, value, group = variable, colour = variable)) +
-  
-  geom_line(data = filter(plotDF, variable == 'case.rate'), linetype = "solid", color = 'black', alpha = 0.6) + 
-  geom_line(data = filter(plotDF, variable == 'fitted'), linetype = "solid", color = 'red') +
-  geom_line(data = filter(plotDF, variable == 'pred'), linetype = "dashed", color = 'blue') +
-  
-  # uncertainty band for fitted model
-  geom_ribbon(data = filter(plotDF, variable == 'lowerCI.fitted')
-    , aes(ymin = filter(plotDF, variable == 'lowerCI.fitted')$value
-                  , ymax =  filter(plotDF, variable == 'upperCI.fitted')$value
-                  )
-              , alpha = 0.3, color = NA
-              , fill = "red") +
-  
-  # prediction band for forecast
-  geom_ribbon(data = filter(plotDF, variable == 'lowerCI.pred')
-    , aes(ymin = filter(plotDF, variable == 'lowerCI.pred')$value
-                  , ymax =  filter(plotDF, variable == 'upperCI.pred')$value
-                  )
-              , alpha = 0.3, color = NA
-              , fill = "blue") +
-  
-  facet_wrap(. ~ city, ncol = 2) +
-  ggtitle('Forecast 14 Days') +
-  ylab('Case Rate per 100,000 People') +
-  xlab('Days since March 16, 2020') +
-  #ylim(-15,100) +
-  
-  # add performance metrics
-  geom_label(data = metrics %>% mutate(MAPE_14d = paste0("MAPE = ", MAPE_14d))
-             , aes(label = MAPE_14d), 
-            x = 0, y = 155, hjust="inward", vjust="inward",
-            inherit.aes = FALSE) +
-  geom_label(data = metrics %>% mutate(MAE_14d = paste0("MAE = ", MAE_14d))
-             , aes(label = MAE_14d), 
-            x = 0, y = 125, hjust="inward", vjust="inward",
-            inherit.aes = FALSE) +
-  geom_label(data = metrics %>% mutate(CP_14d = paste0("CP = ", CP_14d))
-              , aes(label = CP_14d), 
-             x = 0, y = 70, hjust="inward", vjust="inward",
-             inherit.aes = FALSE) +
-   
-  theme_classic() +
-  theme(legend.position = 'none') 
-  
-p
-```
+
 
 ## Naive Multiple Regression with Walking-7
 
@@ -736,192 +801,43 @@ case.rate.lm.walking7 <-
        )
 
 summary(case.rate.lm.walking7)
+
+
 ```
 
-```{r}
-model <- case.rate.lm.walking7
 
-results7 <- test7 %>% select(city, day031620, case.rate, casesTminus1.rate, casesTminus2.rate, weekend, walkingMinus7)
-pred <- predict(model, newdata = results7, interval = "prediction", level = 0.95) %>% as.data.frame()
-results7$pred <- pred$fit
-results7$upperCI <- pred$upr
-results7$lowerCI <- pred$lwr
 
-results14 <- test14 %>% select(city, day031620, case.rate, casesTminus1.rate, casesTminus2.rate, weekend, walkingMinus7)
-pred <- predict(model, newdata = results14, interval = "prediction", level = 0.95) %>% as.data.frame()
-results14$pred <- pred$fit
-results14$upperCI <- pred$upr
-results14$lowerCI <- pred$lwr
+```{r fig.width=10, fig.height=30}
 
-metrics <- results7 %>%
-  group_by(city) %>%
-  summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
-            , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
-            , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
-            ) %>%
-  left_join( results14 %>%
-               group_by(city) %>%
-               summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
-                         , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
-                         , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
-                         )
-             , by = "city"
-             , suffix = c("_7d", "_14d")
-             )
-#metrics %>% arrange(as.character(city)) %>% as.data.frame() %>% print()
+output <- metricsFuncLM(model = case.rate.lm.walking7)
 
 allMetrics <- allMetrics %>% left_join(
-    metrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmWalking7")})
+    output$performMetrics %>%
+      rename_at(vars(-city), function(x) {paste0(x, "_lmWk7")})
     , by = "city"
     )
-```
 
-``` {r fig.width=10, fig.height=30}
-
-pred <- predict(model, newdata = train, interval = "prediction", level = 0.95)
-
-plotDF <- train %>%
-  select(city, day031620, case.rate) %>%
-  mutate(city = as.character(city)) %>%
-  cbind(pred) %>%
-  rename(fitted = fit
-         , lowerCI.fitted = lwr
-         , upperCI.fitted = upr
-         ) %>%
-  reshape::melt(id = c('city', 'day031620')) %>%
-
-  # bring into forecasted case rates
-  rbind(results7 %>%
-          select(city, day031620, case.rate, pred, upperCI, lowerCI) %>%
-          rename(upperCI.pred = upperCI
-                 , lowerCI.pred = lowerCI
-                 ) %>%
-          reshape2::melt(id = c('city', 'day031620'))
-        )
+plotFuncLM(model = case.rate.lm.walking7
+         , forecastLength = 7)
 
 
-p <- ggplot(plotDF
-            , aes(day031620, value, group = variable, colour = variable)) +
-
-  geom_line(data = filter(plotDF, variable == 'case.rate'), linetype = "solid", color = 'black', alpha = 0.6) +
-  geom_line(data = filter(plotDF, variable == 'fitted'), linetype = "solid", color = 'red') +
-  geom_line(data = filter(plotDF, variable == 'pred'), linetype = "dashed", color = 'blue') +
-
-  # uncertainty band for fitted model
-  geom_ribbon(data = filter(plotDF, variable == 'lowerCI.fitted')
-    , aes(ymin = filter(plotDF, variable == 'lowerCI.fitted')$value
-                  , ymax =  filter(plotDF, variable == 'upperCI.fitted')$value
-                  )
-              , alpha = 0.3, color = NA
-              , fill = "red") +
-
-  # prediction band for forecast
-  geom_ribbon(data = filter(plotDF, variable == 'lowerCI.pred')
-    , aes(ymin = filter(plotDF, variable == 'lowerCI.pred')$value
-                  , ymax =  filter(plotDF, variable == 'upperCI.pred')$value
-                  )
-              , alpha = 0.3, color = NA
-              , fill = "blue") +
-
-  facet_wrap(. ~ city, ncol = 2) +
-  ggtitle('Forecast 7 Days') +
-  ylab('Case Rate per 100,000 People') +
-  xlab('Days since March 16, 2020') +
-  #ylim(-15,100) +
-
-  # add performance metrics
-  geom_label(data = metrics %>% mutate(MAPE_7d = paste0("MAPE = ", MAPE_7d))
-             , aes(label = MAPE_7d),
-            x = 0, y = 155, hjust="inward", vjust="inward",
-            inherit.aes = FALSE) +
-  geom_label(data = metrics %>% mutate(MAE_7d = paste0("MAE = ", MAE_7d))
-             , aes(label = MAE_7d),
-            x = 0, y = 125, hjust="inward", vjust="inward",
-            inherit.aes = FALSE) +
-  geom_label(data = metrics %>% mutate(CP_7d = paste0("CP = ", CP_7d))
-              , aes(label = CP_7d),
-             x = 0, y = 70, hjust="inward", vjust="inward",
-             inherit.aes = FALSE) +
-
-  theme_classic() +
-  theme(legend.position = 'none')
-
-p
-```
-
-``` {r fig.width=10, fig.height=30}
-plotDF <- train %>%
-  select(city, day031620, case.rate) %>%
-  mutate(city = as.character(city)) %>%
-  cbind(pred) %>%
-  rename(fitted = fit
-         , lowerCI.fitted = lwr
-         , upperCI.fitted = upr
-         ) %>%
-  reshape::melt(id = c('city', 'day031620')) %>%
-
-  # bring into forecasted case rates
-  rbind(results14 %>%
-          select(city, day031620, case.rate, pred, upperCI, lowerCI) %>%
-          rename(upperCI.pred = upperCI
-                 , lowerCI.pred = lowerCI
-                 ) %>%
-          reshape2::melt(id = c('city', 'day031620'))
-        )
-
-
-p <- ggplot(plotDF
-            , aes(day031620, value, group = variable, colour = variable)) +
-
-  geom_line(data = filter(plotDF, variable == 'case.rate'), linetype = "solid", color = 'black', alpha = 0.6) +
-  geom_line(data = filter(plotDF, variable == 'fitted'), linetype = "solid", color = 'red') +
-  geom_line(data = filter(plotDF, variable == 'pred'), linetype = "dashed", color = 'blue') +
-
-  # uncertainty band for fitted model
-  geom_ribbon(data = filter(plotDF, variable == 'lowerCI.fitted')
-    , aes(ymin = filter(plotDF, variable == 'lowerCI.fitted')$value
-                  , ymax =  filter(plotDF, variable == 'upperCI.fitted')$value
-                  )
-              , alpha = 0.3, color = NA
-              , fill = "red") +
-
-  # prediction band for forecast
-  geom_ribbon(data = filter(plotDF, variable == 'lowerCI.pred')
-    , aes(ymin = filter(plotDF, variable == 'lowerCI.pred')$value
-                  , ymax =  filter(plotDF, variable == 'upperCI.pred')$value
-                  )
-              , alpha = 0.3, color = NA
-              , fill = "blue") +
-
-  facet_wrap(. ~ city, ncol = 2) +
-  ggtitle('Forecast 14 Days') +
-  ylab('Case Rate per 100,000 People') +
-  xlab('Days since March 16, 2020') +
-  #ylim(-15,100) +
-
-  # add performance metrics
-  geom_label(data = metrics %>% mutate(MAPE_14d = paste0("MAPE = ", MAPE_14d))
-             , aes(label = MAPE_14d),
-            x = 0, y = 155, hjust="inward", vjust="inward",
-            inherit.aes = FALSE) +
-  geom_label(data = metrics %>% mutate(MAE_14d = paste0("MAE = ", MAE_14d))
-             , aes(label = MAE_14d),
-            x = 0, y = 125, hjust="inward", vjust="inward",
-            inherit.aes = FALSE) +
-  geom_label(data = metrics %>% mutate(CP_14d = paste0("CP = ", CP_14d))
-              , aes(label = CP_14d),
-             x = 0, y = 70, hjust="inward", vjust="inward",
-             inherit.aes = FALSE) +
-
-  theme_classic() +
-  theme(legend.position = 'none')
-
-p
 ```
 
 
 
+
+```{r fig.width=10, fig.height=30}
+plotFuncLM(model = case.rate.lm.walking7
+         , forecastLength = 14)
+```
+
+
+
+
+
+
+
+## Summary Metrics
 ``` {r}
 
 allMetrics %>% select(city, starts_with("MAPE_7d")) %>%
@@ -977,3 +893,4 @@ allMetrics %>% select(city, starts_with("CP_14d")) %>%
   print()
 
 ```
+

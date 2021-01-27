@@ -150,9 +150,10 @@ data <- cityCovid %>%
   ) %>%
   
   # CHANGE PEAK FOR BOSTON PER FRANCIS
-  mutate(newCases = case_when(city == 'Boston'
-                               & date == as.Date('2020-05-31') ~ 360
-                               , TRUE ~ newCases
+  mutate(newCases = case_when(city == 'Boston' & date == as.Date('2020-05-31') ~ 360
+                              , city == 'Oklahoma' & date == as.Date('2020-11-07') ~ 1786/2 # https://github.com/nytimes/covid-19-data/issues/502
+                              , city == 'Oklahoma' & date == as.Date('2020-11-08') ~ 1786/2
+                              , TRUE ~ newCases
   )
   ) %>%
   
