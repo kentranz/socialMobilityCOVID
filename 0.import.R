@@ -42,10 +42,11 @@ FIPS <- read.csv('socialMobilityCOVID/data/raw/CBSAtoFIPS.csv'
 
 FIPS %>% distinct(city) %>% pull() %>% length()
 
-rawNYT <- read.csv('socialMobilityCOVID/data/raw/us-counties.csv'
-                   , colClasses=c( "fips"="character")
-                    )
-cityCovid <- read.csv('socialMobilityCOVID/data/raw/us-counties.csv'
+# rawNYT <- read.csv('socialMobilityCOVID/data/raw/us-counties.csv'
+#                    , colClasses=c( "fips"="character")
+#                     )
+
+cityCovid <- read.csv('https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv'
                       , colClasses=c( "fips"="character")
                       ) %>%
   filter(fips %in% FIPS$fips)  %>%
@@ -67,11 +68,11 @@ torontoCovid <- read.csv('socialMobilityCOVID/data/raw/TorontoCovid.csv') %>%
   select(city, date, newCases) 
 
 montrealCovid <- read.csv('socialMobilityCOVID/data/raw/MontrealCovid.csv'
-                          , sep = ';'
+                          , sep = ','
                           ) %>%
-  mutate(date = as.Date(Date)
+  mutate(date = as.Date(DATE, '%m/%d/%y')
          , city = 'Montreal') %>%
-  rename(newCases = Nouveaux.cas) %>%
+  rename(newCases = New.cases) %>%
   select(city, date, newCases)
 
 
@@ -93,7 +94,7 @@ londonCovid <- read.csv('socialMobilityCOVID/data/raw/phe_cases_london_boroughs.
 
 
 
-apple <- read.csv('socialMobilityCOVID/data/raw/applemobilitytrends-2020-11-17.csv')
+apple <- read.csv('socialMobilityCOVID/data/raw/applemobilitytrends.csv')
 
 
 topCity <- read.csv('socialMobilityCOVID/data/raw/top50USCitiesPop.csv') 

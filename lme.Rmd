@@ -223,15 +223,15 @@ plot(alldata.groupedR,
 ## Data Partition
 
 - We used start date as 2020-03-16, because that was the first date that allowed for at least 2 lagged observerations in all cities.
-- Train set used data until 2020-10-31
+- Train set used data until 2020-11-30
 - Test sets: 
-  - test7: first 7 days in November
-  - test14: first 14 days in November
+  - test7: first 7 days in December
+  - test14: first 14 days in December
   
 
 ``` {r trainTest}
 
-cutOff <- as.Date("2020-10-31")
+cutOff <- as.Date("2020-11-30")
 
 train <- alldata.groupedR %>% 
   filter(day031620 >= 0 & as.Date(date) <= cutOff)
@@ -1051,7 +1051,7 @@ test7 <- alldata.groupedR %>%
   
   
 test14 <- alldata.groupedR %>% 
-  filter(day031620 >= 0 & as.Date(date) > cutOff) %>%
+  filter(day031620 >= 0 & as.Date(date) > cutOff & as.Date(date) <= (cutOff + 14)) %>%
   select(city, day031620, date, weekend, case.rate, casesTminus1.rate, casesTminus2.rate, walkingMinus7, walkingMinus14) %>%
   
   # retained lag case rates for first 2 days only, zero out the rest

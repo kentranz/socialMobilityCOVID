@@ -2,6 +2,9 @@
 # PREP DATAFRAME TO USE FOR MODEL DEVELOPMENT
 ###################################
 
+startDate <- '2020-03-01'
+endDate <- '2020-12-14'
+
 
 ###################################
 # WHICH CITIES ARE INCLUDED?
@@ -122,7 +125,7 @@ mobility %<>%
 
 ## padding DF to backfill zeros until 2020-03-01
 padDF <- data.frame(
-          date = seq(as.Date('2020-03-01'), as.Date('2020-11-14'), by = 'day')
+          date = seq(as.Date(startDate), as.Date(endDate), by = 'day')
           #, casesZero = rep(0) 
           ) %>%
           merge(cities[!cities %in% c('Toronto', 'Montreal', 'Stockholm', 'London')]
@@ -283,6 +286,14 @@ data %>%
   print()
 
 
+
+###################################
+# EXPORT TO CSV
+###################################
+write.csv(all <- data %>% filter(date >= as.Date(startDate) 
+                                 & date <= as.Date(endDate))
+          , file = "socialMobilityCOVID/data/all.csv"
+          , row.names = F)
 
 
 ###################################
