@@ -20,6 +20,12 @@ UScities <- c(
   , 'Miami-Fort Lauderdale-Pompano Beach, FL'
   , 'Dallas-Fort Worth-Arlington, TX'
   , 'Portland-Vancouver-Hillsboro, OR-WA'
+  
+  , 'Louisville/Jefferson County, KY-IN'
+  , 'Albuquerque, NM'
+  , 'San Francisco-Oakland-Berkeley, CA'
+  , 'Detroit-Warren-Dearborn, MI'
+  , 'Charlotte-Concord-Gastonia, NC-SC'
 )
 
 
@@ -55,7 +61,10 @@ cityCovid <- read.csv('https://raw.githubusercontent.com/nytimes/covid-19-data/m
   group_by(city, date) %>% 
   summarize(sumCasesAllCounty = sum(cases)) %>%
   ungroup() %>%
-  mutate(date = as.Date(date)) %>%
+  mutate(date = as.Date(date)
+         , city = case_when(city == 'Louisville/Jefferson County' ~ 'Louisville'
+                            , TRUE ~ city)
+         ) %>%
   arrange(city, date) %>%
   rename(all_cases = sumCasesAllCounty)
 

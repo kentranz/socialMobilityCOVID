@@ -22,20 +22,21 @@ cities <- c('New York', 'Chicago'
             , 'Oklahoma' 
             , 'Los Angeles', 'Denver', 'Boston', 'Pittsburgh', 'Memphis'
             , 'Atlanta', 'Miami', 'Dallas', 'Portland'
-            , 'Toronto', 'Montreal'
-            , 'Stockholm'
-            , 'London'
+            # , 'Toronto', 'Montreal'
+            # , 'Stockholm'
+            # , 'London'
+            , 'Louisville', 'Albuquerque', 'San Francisco', 'Detroit', 'Charlotte'
             )
 
 ###################################
 # PREPING DATA FOR MODEL BUIDLING
 ###################################
 # SUBSET APPLE DATA
-apple %<>% 
-  mutate(region = str_replace(region, ' City', '')) %>%
-  filter(geo_type == 'city'
-         & region %in% cities) %>%
-  select(region, transportation_type, starts_with('X')) 
+# apple %<>% 
+#   mutate(region = str_replace(region, ' City', '')) %>%
+#   filter(geo_type == 'city'
+#          & region %in% cities) %>%
+#   select(region, transportation_type, starts_with('X')) 
 
 source('socialMobilityCOVID/standardization.R') # REMOVE DAY OF WEEK EFFECT BY FRANCIS
 
@@ -152,21 +153,22 @@ data <- cityCovid %>%
            )
   ) %>%
   
-  # CHANGE PEAK FOR BOSTON PER FRANCIS
-  mutate(newCases = case_when(city == 'Boston' & date == as.Date('2020-05-31') ~ 360
-                              , city == 'Oklahoma' & date == as.Date('2020-11-07') ~ 1786/2 # https://github.com/nytimes/covid-19-data/issues/502
-                              , city == 'Oklahoma' & date == as.Date('2020-11-08') ~ 1786/2
-                              , TRUE ~ newCases
-  )
-  ) %>%
+  # # CHANGE PEAK FOR BOSTON PER FRANCIS
+  # mutate(newCases = case_when(city == 'Boston' & date == as.Date('2020-05-31') ~ 360
+  #                             , city == 'Oklahoma' & date == as.Date('2020-11-07') ~ 1786/2 # https://github.com/nytimes/covid-19-data/issues/502
+  #                             , city == 'Oklahoma' & date == as.Date('2020-11-08') ~ 1786/2
+  #                             , TRUE ~ newCases
+  # )
+  # ) %>%
   
   select(city, date, newCases) %>%
   ungroup() %>%
   
-  bind_rows(montrealCovid, torontoCovid
-            , stockholmCovid
-            , londonCovid
-            ) %>%
+  # NO LONGER NEED NON-US CITIES
+  # bind_rows(montrealCovid, torontoCovid
+  #           , stockholmCovid
+  #           , londonCovid
+  #           ) %>%
   arrange(city, date) %>% 
   
 

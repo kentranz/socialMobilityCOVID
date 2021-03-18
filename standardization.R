@@ -12,8 +12,18 @@ for (indexCity in 1:length(cities))
 print(cities[indexCity])
 
 #Replace "Toronto" with the name of city you want to separate
-City <- which(apple.raw$region == cities[indexCity])
+if (cities[indexCity] == 'San Francisco')
+{
+  City <- which(apple.raw$region == 'San Francisco - Bay Area')
+}
+else  
+{
+    City <- which(apple.raw$region == cities[indexCity])
+}
 
+#print(City)
+  
+  
 apple.first <- as.Date(gsub('\\.', '-', substr(names(apple.raw)[7], start = 2, 11)))
 apple.last <- as.Date(gsub('\\.', '-', substr(names(apple.raw)[ncol(apple.raw)], start = 2, 11)))
 apple.days <- seq(apple.first, apple.last, by = "day")
