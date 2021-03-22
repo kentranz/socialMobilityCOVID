@@ -110,3 +110,21 @@ topCity <- read.csv('socialMobilityCOVID/data/raw/top50USCitiesPop.csv')
 
 
 #google <- read.csv('socialMobilityCOVID/data/raw/Global_Mobility_Report.csv')
+
+
+googleTrends <- read.csv('/Users/kentran/Documents/PhD/senMovement/socialMobilityCOVID/data/raw/google trends.csv') %>%
+  select(Week, contains('covid.testing')) %>% 
+  melt(id = 'Week') %>%
+  mutate(city = str_extract(string = variable, pattern = '\\.\\.\\..+?\\.' )
+         , city = str_replace_all(string = city, pattern = '\\.', replacement = '')
+         , city = case_when(city == 'Los' ~ 'Los Angeles'
+                            , city == 'New' ~ 'New York'
+                            , city == 'San' ~ 'San Francisco'
+                            , TRUE ~ city
+                            ) 
+         , Week = as.Date(Week, '%m/%d/%y')
+         ) %>%
+  rename(testingNearMe = value)
+
+
+
