@@ -4,8 +4,11 @@ output:
   #rmarkdown::github_document
   html_document:
     toc: true
-    number_sections: true
     keep_md: true
+    number_sections: true
+  # md_document:
+  #   variant: "markdown_github"
+  #   number_sections: true
 ---
 
 
@@ -207,22 +210,22 @@ alldata.groupedR <- groupedData(case.rate ~ day | city, outer = ~ city.ind,
 head(alldata.groupedR)  # not printed in this R chunk
 ```
 
-- Create plots from groupedData objects; nlme generic plotting on these objects uses Trellis graphs here.
+<!-- - Create plots from groupedData objects; nlme generic plotting on these objects uses Trellis graphs here. -->
 
-```{r plot_group, echo=FALSE}
-# plot city trajectories of (raw) daily cases
- plot(alldata.grouped, 
-     main='city time-series of daily new case counts')
+<!-- ```{r plot_group, echo=FALSE} -->
+<!-- # plot city trajectories of (raw) daily cases -->
+<!--  plot(alldata.grouped,  -->
+<!--      main='city time-series of daily new case counts') -->
 
-# plot city trajectories of daily case rates per 100000
-plot(alldata.groupedR, 
-     main='city time-series of daily case rates per 100000')
-```
+<!-- # plot city trajectories of daily case rates per 100000 -->
+<!-- plot(alldata.groupedR,  -->
+<!--      main='city time-series of daily case rates per 100000') -->
+<!-- ``` -->
 
 
 ## Data Partition
 
-- We used start date as 2020-03-16, because that was the first date that allowed for at least 2 lagged observerations in all cities.
+- We used start date as 2020-03-16, because that was the first date that allowed for at least 2 lagged observations in all cities.
 - Train set used data until 2020-11-30
 - Test sets: 
   - test7: first 7 days in December
@@ -689,6 +692,39 @@ plotFuncLME(model = case.rate.lme20201031.reweighed
 ```
 
 
+
+## LME Log-transformed Case Rate
+
+``` {r}
+
+lmeLog <- 
+  lme(fixed = log(case.rate) ~ log(casesTminus1.rate) + log(casesTminus2.rate) + weekend,
+      random = ~ log(casesTminus1.rate) + log(casesTminus2.rate) - 1 | city,
+      data = train
+      )
+
+summary(lmeLog)
+
+```
+
+``` {r fig.width=10, fig.height=30}
+
+output <- metricsFuncLME(model = case.rate.lme20201031.reweighed)
+
+allMetrics <- allMetrics %>% left_join(
+    output$performMetrics %>%
+      rename_at(vars(-city), function(x) {paste0(x, "_lmeWt")})
+    , by = "city"
+    )
+
+
+plotFuncLME(model = case.rate.lme20201031.reweighed
+         , forecastLength = 7)
+```
+``` {r fig.width=10, fig.height=30}
+
+plotFuncLME(model = case.rate.lme20201031.reweighed
+    
 
 <!-- ## LME Weighted Residual + Walking-7 -->
 <!-- ```{r} -->
@@ -1227,3 +1263,6 @@ allMetrics %>% select(city, starts_with("CP_14d")) %>%
   print()
 
 ```
+
+
+
