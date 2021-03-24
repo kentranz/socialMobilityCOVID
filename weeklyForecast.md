@@ -990,7 +990,7 @@ allMetrics <- allMetrics %>% left_join(
     )
 ```
 
-## Multiple Regression
+## Multiple Regression + Testing Near Me
 
 ```r
 lmLogTest <- 
@@ -2141,7 +2141,7 @@ allMetrics <- allMetrics %>% left_join(
     )
 ```
 
-## Multiple Regression
+## Multiple Regression + Testing Near Me
 
 ```r
 lmLogTest <- 

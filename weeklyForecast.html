@@ -209,23 +209,23 @@ summary {
 <li><a href="#multiple-regression-1"><span class="toc-section-number">3.9</span> Multiple Regression</a></li>
 <li><a href="#lme-log-testing-near-me"><span class="toc-section-number">3.10</span> LME-Log + Testing Near Me</a></li>
 <li><a href="#lme-log-weighted-residual-testing-near-me"><span class="toc-section-number">3.11</span> LME-Log weighted residual + Testing Near Me</a></li>
-<li><a href="#multiple-regression-2"><span class="toc-section-number">3.12</span> Multiple Regression</a></li>
+<li><a href="#multiple-regression-testing-near-me-1"><span class="toc-section-number">3.12</span> Multiple Regression + Testing Near Me</a></li>
 <li><a href="#metrics-for-mar-nov"><span class="toc-section-number">3.13</span> Metrics for Mar-Nov</a></li>
 </ul></li>
 <li><a href="#mar-aug"><span class="toc-section-number">4</span> Mar-Aug</a>
 <ul>
 <li><a href="#lme-1"><span class="toc-section-number">4.1</span> LME</a></li>
 <li><a href="#lme-weighted-1"><span class="toc-section-number">4.2</span> LME weighted</a></li>
-<li><a href="#multiple-regression-3"><span class="toc-section-number">4.3</span> Multiple Regression</a></li>
+<li><a href="#multiple-regression-2"><span class="toc-section-number">4.3</span> Multiple Regression</a></li>
 <li><a href="#lme-testing-near-me-1"><span class="toc-section-number">4.4</span> LME + Testing Near Me</a></li>
-<li><a href="#multiple-regression-testing-near-me-1"><span class="toc-section-number">4.5</span> Multiple Regression + Testing Near Me</a></li>
+<li><a href="#multiple-regression-testing-near-me-2"><span class="toc-section-number">4.5</span> Multiple Regression + Testing Near Me</a></li>
 <li><a href="#log-transformed-1"><span class="toc-section-number">4.6</span> Log-transformed</a></li>
 <li><a href="#lme-log-1"><span class="toc-section-number">4.7</span> LME-Log</a></li>
 <li><a href="#lme-log-weighted-residual-1"><span class="toc-section-number">4.8</span> LME-Log weighted residual</a></li>
-<li><a href="#multiple-regression-4"><span class="toc-section-number">4.9</span> Multiple Regression</a></li>
+<li><a href="#multiple-regression-3"><span class="toc-section-number">4.9</span> Multiple Regression</a></li>
 <li><a href="#lme-log-testing-near-me-1"><span class="toc-section-number">4.10</span> LME-Log + Testing Near Me</a></li>
 <li><a href="#lme-log-weighted-residual-testing-near-me-1"><span class="toc-section-number">4.11</span> LME-Log weighted residual + Testing Near Me</a></li>
-<li><a href="#multiple-regression-5"><span class="toc-section-number">4.12</span> Multiple Regression</a></li>
+<li><a href="#multiple-regression-testing-near-me-3"><span class="toc-section-number">4.12</span> Multiple Regression + Testing Near Me</a></li>
 <li><a href="#metrics-for-mar-aug"><span class="toc-section-number">4.13</span> Metrics for Mar-Aug</a></li>
 </ul></li>
 </ul>
@@ -1080,8 +1080,8 @@ allMetrics &lt;- allMetrics %&gt;% left_join(
     , by = &quot;city&quot;
     )</code></pre>
 </div>
-<div id="multiple-regression-2" class="section level2" number="3.12">
-<h2 number="3.12"><span class="header-section-number">3.12</span> Multiple Regression</h2>
+<div id="multiple-regression-testing-near-me-1" class="section level2" number="3.12">
+<h2 number="3.12"><span class="header-section-number">3.12</span> Multiple Regression + Testing Near Me</h2>
 <pre class="r"><code>lmLogTest &lt;- 
   lm( case.rate ~ casesTminus1.rate + casesTminus2.rate + testingNearMe
        , data = train
@@ -1739,7 +1739,7 @@ allMetrics &lt;- allMetrics %&gt;% left_join(
     , by = &quot;city&quot;
     )</code></pre>
 </div>
-<div id="multiple-regression-3" class="section level2" number="4.3">
+<div id="multiple-regression-2" class="section level2" number="4.3">
 <h2 number="4.3"><span class="header-section-number">4.3</span> Multiple Regression</h2>
 <pre class="r"><code>lm &lt;- 
   lm( case.rate ~ casesTminus1.rate + casesTminus2.rate
@@ -1823,7 +1823,7 @@ allMetrics &lt;- allMetrics %&gt;% left_join(
     , by = &quot;city&quot;
     )</code></pre>
 </div>
-<div id="multiple-regression-testing-near-me-1" class="section level2" number="4.5">
+<div id="multiple-regression-testing-near-me-2" class="section level2" number="4.5">
 <h2 number="4.5"><span class="header-section-number">4.5</span> Multiple Regression + Testing Near Me</h2>
 <pre class="r"><code>lmTest &lt;- 
   lm( case.rate ~ casesTminus1.rate + casesTminus2.rate + testingNearMe
@@ -1960,7 +1960,7 @@ allMetrics &lt;- allMetrics %&gt;% left_join(
     , by = &quot;city&quot;
     )</code></pre>
 </div>
-<div id="multiple-regression-4" class="section level2" number="4.9">
+<div id="multiple-regression-3" class="section level2" number="4.9">
 <h2 number="4.9"><span class="header-section-number">4.9</span> Multiple Regression</h2>
 <pre class="r"><code>lmLog &lt;- 
   lm( case.rate ~ casesTminus1.rate + casesTminus2.rate
@@ -2070,8 +2070,8 @@ allMetrics &lt;- allMetrics %&gt;% left_join(
     , by = &quot;city&quot;
     )</code></pre>
 </div>
-<div id="multiple-regression-5" class="section level2" number="4.12">
-<h2 number="4.12"><span class="header-section-number">4.12</span> Multiple Regression</h2>
+<div id="multiple-regression-testing-near-me-3" class="section level2" number="4.12">
+<h2 number="4.12"><span class="header-section-number">4.12</span> Multiple Regression + Testing Near Me</h2>
 <pre class="r"><code>lmLogTest &lt;- 
   lm( case.rate ~ casesTminus1.rate + casesTminus2.rate + testingNearMe
        , data = train

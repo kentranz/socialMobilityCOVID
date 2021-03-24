@@ -2018,7 +2018,7 @@ plotFuncLM(model = lmLog
 
 
 
-## Summary Metrics
+## Summary Metrics Mar-Nov
 
 ```r
 allMetrics %>% select(city, starts_with("MAPE_7d")) %>%

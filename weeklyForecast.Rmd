@@ -688,7 +688,7 @@ allMetrics <- allMetrics %>% left_join(
     )
 ```
 
-## Multiple Regression
+## Multiple Regression + Testing Near Me
 ```{r}
 lmLogTest <- 
   lm( case.rate ~ casesTminus1.rate + casesTminus2.rate + testingNearMe
@@ -1058,7 +1058,7 @@ allMetrics <- allMetrics %>% left_join(
     )
 ```
 
-## Multiple Regression
+## Multiple Regression + Testing Near Me
 ```{r}
 lmLogTest <- 
   lm( case.rate ~ casesTminus1.rate + casesTminus2.rate + testingNearMe
