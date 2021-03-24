@@ -38,9 +38,9 @@ str(alldata)
 ## 'data.frame':	7225 obs. of  43 variables:
 ##  $ city                   : Factor w/ 25 levels "Albuquerque",..: 1 1 1 1 1 1 1 1 1 1 ...
 ##  $ date                   : Factor w/ 289 levels "2020-03-01","2020-03-02",..: 1 2 3 4 5 6 7 8 9 10 ...
-##  $ newCases               : int  0 0 0 0 0 0 0 0 0 0 ...
-##  $ casesTminus1           : int  0 0 0 0 0 0 0 0 0 0 ...
-##  $ casesTminus2           : int  0 0 0 0 0 0 0 0 0 0 ...
+##  $ newCases               : num  1e-09 1e-09 1e-09 1e-09 1e-09 1e-09 1e-09 1e-09 1e-09 1e-09 ...
+##  $ casesTminus1           : num  1e-09 1e-09 1e-09 1e-09 1e-09 1e-09 1e-09 1e-09 1e-09 1e-09 ...
+##  $ casesTminus2           : num  1e-09 1e-09 1e-09 1e-09 1e-09 1e-09 1e-09 1e-09 1e-09 1e-09 ...
 ##  $ drivingMinus7          : num  10.63 17.33 8.43 10 13.26 ...
 ##  $ transitMinus7          : num  4.82 7.39 -16.17 2.54 9.04 ...
 ##  $ walkingMinus7          : num  -2.09 14.1 0.84 4.02 12.07 ...
@@ -148,31 +148,31 @@ where day 15 (16th day), i.e., 03-16-20, will be first day w/ all complete data 
 
 ```
 ##          city.FM startdate.FM
-## 1    Albuquerque     03/11/20
-## 2        Atlanta     03/07/20
-## 3      Baltimore     03/13/20
-## 4         Boston     03/05/20
-## 5      Charlotte     03/17/20
-## 6        Chicago     03/08/20
-## 7      Cleveland     03/13/20
-## 8         Dallas     03/09/20
-## 9         Denver     03/09/20
-## 10       Detroit     03/12/20
-## 11       Houston     03/12/20
-## 12  Indianapolis     03/08/20
-## 13   Los Angeles     03/03/20
-## 14    Louisville     03/14/20
-## 15       Memphis     03/18/20
-## 16         Miami     03/10/20
-## 17      New York     03/04/20
-## 18      Oklahoma     03/15/20
-## 19       Phoenix     03/16/20
-## 20    Pittsburgh     03/13/20
-## 21      Portland     03/12/20
-## 22    Sacramento     03/12/20
-## 23 San Francisco     03/05/20
+## 1    Albuquerque     03/01/20
+## 2        Atlanta     03/01/20
+## 3      Baltimore     03/01/20
+## 4         Boston     03/01/20
+## 5      Charlotte     03/01/20
+## 6        Chicago     03/01/20
+## 7      Cleveland     03/01/20
+## 8         Dallas     03/01/20
+## 9         Denver     03/01/20
+## 10       Detroit     03/01/20
+## 11       Houston     03/01/20
+## 12  Indianapolis     03/01/20
+## 13   Los Angeles     03/01/20
+## 14    Louisville     03/01/20
+## 15       Memphis     03/01/20
+## 16         Miami     03/01/20
+## 17      New York     03/01/20
+## 18      Oklahoma     03/01/20
+## 19       Phoenix     03/01/20
+## 20    Pittsburgh     03/01/20
+## 21      Portland     03/01/20
+## 22    Sacramento     03/01/20
+## 23 San Francisco     03/01/20
 ## 24       Seattle     03/01/20
-## 25         Tampa     03/15/20
+## 25         Tampa     03/01/20
 ```
 
 - Dec 17 2020:  The above all provided, it should be mentioned that the use of the French method and start dates other than 03-16-20 will be put off for potential future use.
@@ -478,15 +478,15 @@ plotFuncLME <- function(model
     # add performance metrics
     geom_label(data = perform 
                , aes(label = MAPE), 
-              x = 0, y = max(filter(plotDF, variable == 'case.rate')$value), hjust="inward", vjust="inward",
+              x = 0, y = max(abs(filter(plotDF, variable == 'case.rate')$value)), hjust="inward", vjust="inward",
               inherit.aes = FALSE) +
     geom_label(data = perform 
                , aes(label = MAE), 
-              x = 0, y = max(filter(plotDF, variable == 'case.rate')$value)*4/5, hjust="inward", vjust="inward",
+              x = 0, y = max(abs(filter(plotDF, variable == 'case.rate')$value))*4/5, hjust="inward", vjust="inward",
               inherit.aes = FALSE) +
     geom_label(data = perform 
                 , aes(label = CP), 
-               x = 0, y = max(filter(plotDF, variable == 'case.rate')$value)*3/5, hjust="inward", vjust="inward",
+               x = 0, y = max(abs(filter(plotDF, variable == 'case.rate')$value))*3/5, hjust="inward", vjust="inward",
                inherit.aes = FALSE) +
      
     theme_classic() +
@@ -1070,12 +1070,12 @@ test %>% select(city, date, weekend, case.rate, pred, lowerCI, upperCI)
 ## 43         Boston 2020-12-01       0  39.2569781 26.215109 21.131341 31.997004
 ## 44         Boston 2020-12-02       0  63.6155944 22.406104 19.191964 26.742876
 ## 45         Boston 2020-12-03       0  90.3546651 23.233660 20.346558 27.063120
-## 46         Boston 2020-12-04       0  78.2266599 22.225972 19.505547 26.033398
+## 46         Boston 2020-12-04       0  78.2266599 22.225972 19.505546 26.033398
 ## 47         Boston 2020-12-05       1  73.7735683 19.668031 17.083588 23.220749
 ## 48         Boston 2020-12-06       1  69.6077729 18.053702 15.509672 21.379285
 ## 49         Boston 2020-12-07       0  38.4156105 18.698817 16.532111 21.842140
-## 50         Boston 2020-12-08       0  54.1553398 18.414615 16.237304 21.488918
-## 51         Boston 2020-12-09       0  77.4878982 18.515373 16.506728 21.625301
+## 50         Boston 2020-12-08       0  54.1553398 18.414615 16.237303 21.488918
+## 51         Boston 2020-12-09       0  77.4878982 18.515373 16.506727 21.625301
 ## 52         Boston 2020-12-10       0  74.7791051 18.459121 16.382492 21.573342
 ## 53         Boston 2020-12-11       0  78.9859428 18.469100 16.421924 21.592885
 ## 54         Boston 2020-12-12       1  71.8035370 16.078066 13.935744 19.039909
@@ -1089,7 +1089,7 @@ test %>% select(city, date, weekend, case.rate, pred, lowerCI, upperCI)
 ## 62      Charlotte 2020-12-06       1  75.5681818 28.373534 23.486308 31.625415
 ## 63      Charlotte 2020-12-07       0  52.8030303 28.504911 24.101789 31.299076
 ## 64      Charlotte 2020-12-08       0  52.0075758 27.781908 23.472938 30.416996
-## 65      Charlotte 2020-12-09       0  70.6060606 27.493367 23.339677 30.078952
+## 65      Charlotte 2020-12-09       0  70.6060606 27.493367 23.339676 30.078952
 ## 66      Charlotte 2020-12-10       0  51.3257576 27.060522 22.974213 29.592319
 ## 67      Charlotte 2020-12-11       0  78.1439394 26.737341 22.740385 29.230624
 ## 68      Charlotte 2020-12-12       1  63.5227273 24.031906 20.235287 26.861088
@@ -1110,13 +1110,13 @@ test %>% select(city, date, weekend, case.rate, pred, lowerCI, upperCI)
 ## 83        Chicago 2020-12-13       1  56.7423785 37.647196 29.477933 39.254247
 ## 84        Chicago 2020-12-14       0  59.0366017 38.254904 30.239877 39.668947
 ## 85      Cleveland 2020-12-01       0  72.7379593 73.041754 48.390938 69.332606
-## 86      Cleveland 2020-12-02       0  55.7494963 53.610027 48.960829 68.045333
+## 86      Cleveland 2020-12-02       0  55.7494963 53.610027 48.960829 68.045334
 ## 87      Cleveland 2020-12-03       0  52.1858245 65.150514 48.061314 63.567581
-## 88      Cleveland 2020-12-04       0  68.1979390 54.018517 47.371870 63.096527
-## 89      Cleveland 2020-12-05       1  70.5411753 57.344011 44.449115 58.070585
-## 90      Cleveland 2020-12-06       1  66.2452421 50.267260 42.560969 55.972384
+## 88      Cleveland 2020-12-04       0  68.1979390 54.018517 47.371869 63.096527
+## 89      Cleveland 2020-12-05       1  70.5411753 57.344011 44.449114 58.070585
+## 90      Cleveland 2020-12-06       1  66.2452421 50.267260 42.560968 55.972384
 ## 91      Cleveland 2020-12-07       0 101.3937862 53.461360 42.808073 55.022037
-## 92      Cleveland 2020-12-08       0 227.0010139 49.192500 41.785919 54.761656
+## 92      Cleveland 2020-12-08       0 227.0010139 49.192500 41.785919 54.761655
 ## 93      Cleveland 2020-12-09       0  86.9926466 50.517399 41.146936 52.908026
 ## 94      Cleveland 2020-12-10       0  92.4113805 47.814200 40.284917 52.329028
 ## 95      Cleveland 2020-12-11       0  78.5472326 48.165252 39.629598 50.775275
@@ -1137,23 +1137,23 @@ test %>% select(city, date, weekend, case.rate, pred, lowerCI, upperCI)
 ## 110        Dallas 2020-12-12       1  54.7347480 30.716429 26.785569 34.699484
 ## 111        Dallas 2020-12-13       1  25.1989390 28.290851 24.885928 32.112591
 ## 112        Dallas 2020-12-14       0  73.2891247 28.175749 25.051677 31.601355
-## 113        Denver 2020-12-01       0  78.7263850 63.187910 47.839270 64.026318
+## 113        Denver 2020-12-01       0  78.7263850 63.187910 47.839270 64.026316
 ## 114        Denver 2020-12-02       0  53.0459461 63.406550 50.863664 67.082645
-## 115        Denver 2020-12-03       0  78.7263850 62.627865 49.785717 65.402157
+## 115        Denver 2020-12-03       0  78.7263850 62.627865 49.785716 65.402157
 ## 116        Denver 2020-12-04       0  69.5259128 62.140992 49.521689 65.126678
-## 117        Denver 2020-12-05       1  82.3661323 59.231808 46.695858 61.890033
+## 117        Denver 2020-12-05       1  82.3661323 59.231808 46.695857 61.890033
 ## 118        Denver 2020-12-06       1  92.4428400 57.085694 45.500799 60.210382
 ## 119        Denver 2020-12-07       0  68.6159760 57.237671 45.832592 60.330612
 ## 120        Denver 2020-12-08       0  56.2138742 56.804865 45.219813 59.345799
 ## 121        Denver 2020-12-09       0  52.3382174 56.541896 45.082681 59.207742
-## 122        Denver 2020-12-10       0  67.2679215 56.250340 44.833509 58.864183
+## 122        Denver 2020-12-10       0  67.2679215 56.250340 44.833508 58.864183
 ## 123        Denver 2020-12-11       0  71.6490987 55.981513 44.625746 58.590522
 ## 124        Denver 2020-12-12       1  70.8065646 53.346264 42.073558 55.650302
-## 125        Denver 2020-12-13       1  32.9936348 51.445444 41.058408 54.215238
+## 125        Denver 2020-12-13       1  32.9936348 51.445444 41.058407 54.215238
 ## 126        Denver 2020-12-14       0  41.4526771 51.836813 41.561236 54.642374
-## 127       Detroit 2020-12-01       0  55.4883721 40.663300 22.702980 79.764869
+## 127       Detroit 2020-12-01       0  55.4883721 40.663300 22.702981 79.764866
 ## 128       Detroit 2020-12-02       0  77.0697674 57.321409 45.086407 73.580581
-## 129       Detroit 2020-12-03       0  60.5116279 40.627999 38.083085 54.723543
+## 129       Detroit 2020-12-03       0  60.5116279 40.627999 38.083084 54.723543
 ## 130       Detroit 2020-12-04       0  80.9069767 40.921516 37.837587 50.940376
 ## 131       Detroit 2020-12-05       1  53.5116279 32.009388 30.758338 40.505133
 ## 132       Detroit 2020-12-06       1   1.4883721 28.741023 26.590161 35.862825
@@ -1166,23 +1166,23 @@ test %>% select(city, date, weekend, case.rate, pred, lowerCI, upperCI)
 ## 139       Detroit 2020-12-13       1   0.9302326 14.062708 12.983271 17.700810
 ## 140       Detroit 2020-12-14       0  56.2790698 14.339959 13.849697 17.330259
 ## 141       Houston 2020-12-01       0  18.1004030 30.521379 31.217575 40.360080
-## 142       Houston 2020-12-02       0  32.6203511 26.249998 26.973945 34.309488
-## 143       Houston 2020-12-03       0  40.6303809 23.173763 23.659922 30.345269
+## 142       Houston 2020-12-02       0  32.6203511 26.249998 26.973945 34.309489
+## 143       Houston 2020-12-03       0  40.6303809 23.173763 23.659922 30.345270
 ## 144       Houston 2020-12-04       0  45.8666194 20.529985 21.040594 26.641044
-## 145       Houston 2020-12-05       1  35.1818623 16.088025 16.628397 21.383869
-## 146       Houston 2020-12-06       1  34.9695824 13.486596 13.710844 18.459293
+## 145       Houston 2020-12-05       1  35.1818623 16.088025 16.628397 21.383870
+## 146       Houston 2020-12-06       1  34.9695824 13.486596 13.710843 18.459293
 ## 147       Houston 2020-12-07       0  34.8280624 13.339563 13.493980 17.125588
 ## 148       Houston 2020-12-08       0  24.9641212 12.385920 12.826828 15.750034
 ## 149       Houston 2020-12-09       0  39.5972851 11.972552 12.240319 15.183054
 ## 150       Houston 2020-12-10       0  30.2428157 11.486271 11.826432 14.524447
 ## 151       Houston 2020-12-11       0  76.7887309 11.158709 11.460907 14.078673
-## 152       Houston 2020-12-12       1  24.1291534  8.491278  8.830618 11.450271
+## 152       Houston 2020-12-12       1  24.1291534  8.491278  8.830617 11.450271
 ## 153       Houston 2020-12-13       1  28.8134641  7.363932  7.404539 10.106787
 ## 154       Houston 2020-12-14       0  34.2478306  8.389805  8.388609 10.514404
-## 155  Indianapolis 2020-12-01       0  76.3061830 75.668619 57.849884 79.182598
+## 155  Indianapolis 2020-12-01       0  76.3061830 75.668619 57.849890 79.182598
 ## 156  Indianapolis 2020-12-02       0 100.2633359 77.867291 61.062447 81.542642
 ## 157  Indianapolis 2020-12-03       0 117.6648091 75.642928 59.308735 78.981959
-## 158  Indianapolis 2020-12-04       0 122.1477371 75.196665 58.972866 78.563716
+## 158  Indianapolis 2020-12-04       0 122.1477371 75.196665 58.972865 78.563716
 ## 159  Indianapolis 2020-12-05       1 103.9268039 71.730375 55.879166 75.185426
 ## 160  Indianapolis 2020-12-06       1 107.1082367 69.579642 54.218559 72.938687
 ## 161  Indianapolis 2020-12-07       0  88.8873035 69.421649 54.495162 72.528436
@@ -1197,10 +1197,10 @@ test %>% select(city, date, weekend, case.rate, pred, lowerCI, upperCI)
 ## 170   Los Angeles 2020-12-02       0  52.9557809 40.676503 35.005456 44.319424
 ## 171   Los Angeles 2020-12-03       0  66.6147098 39.241440 33.709161 42.747969
 ## 172   Los Angeles 2020-12-04       0  75.2716708 37.948737 32.610258 41.324160
-## 173   Los Angeles 2020-12-05       1  81.6811516 34.376909 29.335997 37.749531
+## 173   Los Angeles 2020-12-05       1  81.6811516 34.376909 29.335998 37.749531
 ## 174   Los Angeles 2020-12-06       1  94.3563349 32.032838 27.546506 35.318484
 ## 175   Los Angeles 2020-12-07       0  75.6197654 31.888523 27.655850 34.611721
-## 176   Los Angeles 2020-12-08       0  76.5808091 30.968252 26.519574 33.628951
+## 176   Los Angeles 2020-12-08       0  76.5808091 30.968252 26.519575 33.628951
 ## 177   Los Angeles 2020-12-09       0  87.5079523 30.432299 26.180017 33.041729
 ## 178   Los Angeles 2020-12-10       0 107.2207001 29.818944 25.609262 32.358666
 ## 179   Los Angeles 2020-12-11       0 124.0427493 29.303323 25.190940 31.792869
@@ -1221,20 +1221,20 @@ test %>% select(city, date, weekend, case.rate, pred, lowerCI, upperCI)
 ## 194    Louisville 2020-12-12       1  76.4361620 30.393281 25.904839 33.843309
 ## 195    Louisville 2020-12-13       1  68.2945646 28.151887 24.441349 31.492577
 ## 196    Louisville 2020-12-14       0  53.9084410 28.342700 24.877775 31.409742
-## 197       Memphis 2020-12-01       0  52.3013718 49.726387 41.730499 57.493423
+## 197       Memphis 2020-12-01       0  52.3013718 49.726387 41.730498 57.493423
 ## 198       Memphis 2020-12-02       0  50.0726202 52.049264 42.496037 56.765367
 ## 199       Memphis 2020-12-03       0  45.6151169 48.235364 40.884630 52.883533
-## 200       Memphis 2020-12-04       0  79.6407252 47.602261 40.007602 51.429084
-## 201       Memphis 2020-12-05       1  47.8438685 43.217189 36.015401 47.426235
-## 202       Memphis 2020-12-06       1  25.4820604 40.990624 34.195283 45.015065
+## 200       Memphis 2020-12-04       0  79.6407252 47.602261 40.007602 51.429085
+## 201       Memphis 2020-12-05       1  47.8438685 43.217189 36.015401 47.426234
+## 202       Memphis 2020-12-06       1  25.4820604 40.990624 34.195283 45.015066
 ## 203       Memphis 2020-12-07       0  70.1313849 40.391848 34.094581 43.756050
 ## 204       Memphis 2020-12-08       0  58.7647515 39.117044 33.153481 42.459442
 ## 205       Memphis 2020-12-09       0  81.1265597 38.281629 32.485287 41.534572
 ## 206       Memphis 2020-12-10       0  38.1116530 37.333891 31.697902 40.491432
 ## 207       Memphis 2020-12-11       0  98.8822811 36.535786 31.047371 39.617364
-## 208       Memphis 2020-12-12       1  42.7920315 33.377846 27.813591 36.617368
-## 209       Memphis 2020-12-13       1  95.3905702 31.619158 26.333623 34.650615
-## 210       Memphis 2020-12-14       0 123.8442994 31.783945 26.899931 34.384879
+## 208       Memphis 2020-12-12       1  42.7920315 33.377846 27.813591 36.617367
+## 209       Memphis 2020-12-13       1  95.3905702 31.619158 26.333623 34.650616
+## 210       Memphis 2020-12-14       0 123.8442994 31.783945 26.899931 34.384880
 ## 211         Miami 2020-12-01       0  56.5806452 50.019682 41.951456 53.936774
 ## 212         Miami 2020-12-02       0  61.5967742 49.394955 41.399481 53.234830
 ## 213         Miami 2020-12-03       0  65.9677419 48.741305 40.884942 52.548065
@@ -1249,18 +1249,18 @@ test %>% select(city, date, weekend, case.rate, pred, lowerCI, upperCI)
 ## 222         Miami 2020-12-12       1  56.9677419 39.666133 32.884630 42.712283
 ## 223         Miami 2020-12-13       1  57.9516129 38.417478 31.455257 41.184342
 ## 224         Miami 2020-12-14       0  53.6451613 38.891538 32.589059 41.788786
-## 225      New York 2020-12-01       0  28.2678422 25.302805 22.236053 28.268132
+## 225      New York 2020-12-01       0  28.2678422 25.302805 22.236052 28.268132
 ## 226      New York 2020-12-02       0  30.8229803 24.306101 20.797963 26.563989
 ## 227      New York 2020-12-03       0  32.7588488 24.624664 21.338712 27.136927
 ## 228      New York 2020-12-04       0  37.6089277 24.467695 21.132116 26.881865
-## 229      New York 2020-12-05       1  35.4701054 22.112189 18.981817 24.515276
-## 230      New York 2020-12-06       1  37.4059738 20.752161 17.826395 23.130418
+## 229      New York 2020-12-05       1  35.4701054 22.112189 18.981817 24.515275
+## 230      New York 2020-12-06       1  37.4059738 20.752161 17.826395 23.130417
 ## 231      New York 2020-12-07       0  24.0162172 21.583466 18.802706 23.763885
 ## 232      New York 2020-12-08       0  36.0217238 21.589426 18.660659 23.637542
 ## 233      New York 2020-12-09       0  30.2869738 21.871136 18.923887 24.002125
 ## 234      New York 2020-12-10       0  33.8152501 22.029500 19.049923 24.162181
 ## 235      New York 2020-12-11       0  27.9556053 22.211746 19.208607 24.373121
-## 236      New York 2020-12-12       1  38.8110396 19.990877 17.092649 22.126525
+## 236      New York 2020-12-12       1  38.8110396 19.990877 17.092649 22.126524
 ## 237      New York 2020-12-13       1  31.1872567 18.819182 16.165435 20.964333
 ## 238      New York 2020-12-14       0  32.3269211 19.800116 17.279818 21.761580
 ## 239      Oklahoma 2020-12-01       0  61.3222613 39.961042 35.240954 45.500563
@@ -1277,7 +1277,7 @@ test %>% select(city, date, weekend, case.rate, pred, lowerCI, upperCI)
 ## 250      Oklahoma 2020-12-12       1  91.6994925 20.300286 17.852353 23.461792
 ## 251      Oklahoma 2020-12-13       1  98.2291778 18.672890 16.426171 21.686803
 ## 252      Oklahoma 2020-12-14       0  66.5743994 19.174891 17.113769 21.669649
-## 253       Phoenix 2020-12-01       0 176.9329189 20.209767 14.380427 29.253323
+## 253       Phoenix 2020-12-01       0 176.9329189 20.209767 14.380427 29.253324
 ## 254       Phoenix 2020-12-02       0  68.1257418 16.444436 11.977580 19.860845
 ## 255       Phoenix 2020-12-03       0  73.1174529 18.442499 16.177461 20.905729
 ## 256       Phoenix 2020-12-04       0  98.3993583 18.320664 15.710993 20.352619
@@ -1290,14 +1290,14 @@ test %>% select(city, date, weekend, case.rate, pred, lowerCI, upperCI)
 ## 263       Phoenix 2020-12-11       0 105.7555642 18.498886 16.040890 20.488703
 ## 264       Phoenix 2020-12-12       1 101.6732741 16.508264 13.922475 18.482574
 ## 265       Phoenix 2020-12-13       1  10.8322153 15.542060 13.344668 17.497304
-## 266       Phoenix 2020-12-14       0 157.1681679 16.726445 14.571352 18.506549
-## 267    Pittsburgh 2020-12-01       0  53.5588861 34.926808 30.527485 40.145177
+## 266       Phoenix 2020-12-14       0 157.1681679 16.726445 14.571353 18.506549
+## 267    Pittsburgh 2020-12-01       0  53.5588861 34.926808 30.527485 40.145176
 ## 268    Pittsburgh 2020-12-02       0  44.6041120 33.306200 27.996872 35.468627
-## 269    Pittsburgh 2020-12-03       0  88.2321111 33.229610 29.137409 36.218701
+## 269    Pittsburgh 2020-12-03       0  88.2321111 33.229610 29.137408 36.218701
 ## 270    Pittsburgh 2020-12-04       0  83.3091073 32.732660 28.398665 35.430386
 ## 271    Pittsburgh 2020-12-05       1 111.4466204 30.024604 25.851613 32.797144
 ## 272    Pittsburgh 2020-12-06       1  71.2562360 28.187964 24.648181 31.046704
-## 273    Pittsburgh 2020-12-07       0  52.2432558 28.660635 25.211972 31.208866
+## 273    Pittsburgh 2020-12-07       0  52.2432558 28.660635 25.211971 31.208866
 ## 274    Pittsburgh 2020-12-08       0  61.3677887 28.448442 24.633585 30.663156
 ## 275    Pittsburgh 2020-12-09       0  63.6595318 28.446243 24.805288 30.805443
 ## 276    Pittsburgh 2020-12-10       0 108.3909629 28.386087 24.701158 30.696195
@@ -1312,20 +1312,20 @@ test %>% select(city, date, weekend, case.rate, pred, lowerCI, upperCI)
 ## 285      Portland 2020-12-05       1  38.5887097 36.644825 32.048374 39.850504
 ## 286      Portland 2020-12-06       1  29.0322581 34.273869 30.008251 37.414674
 ## 287      Portland 2020-12-07       0  37.5806452 34.043675 30.018836 36.902325
-## 288      Portland 2020-12-08       0  30.2419355 33.019387 29.095016 35.685951
-## 289      Portland 2020-12-09       0  34.9596774 32.412604 28.579894 35.042981
+## 288      Portland 2020-12-08       0  30.2419355 33.019387 29.095016 35.685950
+## 289      Portland 2020-12-09       0  34.9596774 32.412604 28.579894 35.042982
 ## 290      Portland 2020-12-10       0  39.1935484 31.713204 27.965372 34.255123
 ## 291      Portland 2020-12-11       0  39.9193548 31.126751 27.456990 33.621699
 ## 292      Portland 2020-12-12       1  35.6451613 28.186967 24.667544 30.514994
 ## 293      Portland 2020-12-13       1  22.1774194 26.473869 23.215902 28.891356
 ## 294      Portland 2020-12-14       0  30.0403226 26.855991 23.760561 29.029722
-## 295    Sacramento 2020-12-01       0  52.2479302 37.434182 30.195384 45.525401
+## 295    Sacramento 2020-12-01       0  52.2479302 37.434182 30.195384 45.525399
 ## 296    Sacramento 2020-12-02       0  27.1604625 35.424091 35.371298 45.046958
 ## 297    Sacramento 2020-12-03       0  51.9940941 31.070500 30.805939 37.632105
-## 298    Sacramento 2020-12-04       0  55.8862476 28.207634 28.198908 34.812635
+## 298    Sacramento 2020-12-04       0  55.8862476 28.207634 28.198908 34.812636
 ## 299    Sacramento 2020-12-05       1  22.2952706 23.214037 23.195338 28.727689
 ## 300    Sacramento 2020-12-06       1  55.9285536 19.795035 19.776976 24.766117
-## 301    Sacramento 2020-12-07       0  78.7314964 19.092827 19.034512 23.523968
+## 301    Sacramento 2020-12-07       0  78.7314964 19.092827 19.034512 23.523969
 ## 302    Sacramento 2020-12-08       0  72.0048398 17.879821 17.692180 21.346297
 ## 303    Sacramento 2020-12-09       0  47.8057985 17.047657 16.936354 20.378783
 ## 304    Sacramento 2020-12-10       0  73.9086105 16.299252 16.136590 19.437431
@@ -1334,35 +1334,35 @@ test %>% select(city, date, weekend, case.rate, pred, lowerCI, upperCI)
 ## 307    Sacramento 2020-12-13       1  60.7937455 11.074879 11.011755 13.885921
 ## 308    Sacramento 2020-12-14       0  96.3307992 11.807783 11.807467 14.165554
 ## 309 San Francisco 2020-12-01       0  15.8290614 19.999579 18.560083 23.329073
-## 310 San Francisco 2020-12-02       0  23.1835518 20.368232 19.405953 23.359457
+## 310 San Francisco 2020-12-02       0  23.1835518 20.368232 19.405953 23.359458
 ## 311 San Francisco 2020-12-03       0  31.3833860 19.374063 18.533478 22.081273
 ## 312 San Francisco 2020-12-04       0  17.5408824 19.024966 18.133820 21.656886
 ## 313 San Francisco 2020-12-05       1  38.5054069 16.137350 15.265858 18.836341
-## 314 San Francisco 2020-12-06       1  34.5745586 14.630592 13.758497 17.161056
-## 315 San Francisco 2020-12-07       0  50.6360895 15.280453 14.638437 17.354692
-## 316 San Francisco 2020-12-08       0  32.0385274 15.069339 14.385612 17.101914
-## 317 San Francisco 2020-12-09       0  27.5793392 15.193582 14.519192 17.178234
+## 314 San Francisco 2020-12-06       1  34.5745586 14.630592 13.758497 17.161057
+## 315 San Francisco 2020-12-07       0  50.6360895 15.280453 14.638437 17.354693
+## 316 San Francisco 2020-12-08       0  32.0385274 15.069339 14.385612 17.101915
+## 317 San Francisco 2020-12-09       0  27.5793392 15.193582 14.519192 17.178233
 ## 318 San Francisco 2020-12-10       0  27.3468697 15.179929 14.524117 17.188577
 ## 319 San Francisco 2020-12-11       0  40.8512358 15.216498 14.563492 17.221164
 ## 320 San Francisco 2020-12-12       1  41.5909115 12.854244 12.143885 14.999322
 ## 321 San Francisco 2020-12-13       1  24.3881666 11.733428 11.059302 13.779885
 ## 322 San Francisco 2020-12-14       0  69.6563234 12.750818 12.243586 14.407216
-## 323       Seattle 2020-12-01       0  31.9107905 31.420324 25.634239 39.045507
+## 323       Seattle 2020-12-01       0  31.9107905 31.420324 25.634246 39.045507
 ## 324       Seattle 2020-12-02       0  31.2323721 34.853365 31.587842 39.069866
-## 325       Seattle 2020-12-03       0  20.9304634 30.825658 27.993305 34.987177
+## 325       Seattle 2020-12-03       0  20.9304634 30.825658 27.993307 34.987176
 ## 326       Seattle 2020-12-04       0  34.2224383 30.319515 28.065327 33.991743
-## 327       Seattle 2020-12-05       1  13.2165951 26.145686 23.788679 29.823783
-## 328       Seattle 2020-12-06       1  10.0003895 24.039875 21.931629 27.038731
-## 329       Seattle 2020-12-07       0  80.8825469 23.827718 22.157956 26.630228
-## 330       Seattle 2020-12-08       0  31.9359171 22.911264 21.179174 25.732129
-## 331       Seattle 2020-12-09       0  39.0467468 22.409577 20.740496 25.082922
-## 332       Seattle 2020-12-10       0  44.6499801 21.823520 20.219532 24.436011
+## 327       Seattle 2020-12-05       1  13.2165951 26.145686 23.788678 29.823783
+## 328       Seattle 2020-12-06       1  10.0003895 24.039875 21.931628 27.038731
+## 329       Seattle 2020-12-07       0  80.8825469 23.827718 22.157957 26.630229
+## 330       Seattle 2020-12-08       0  31.9359171 22.911264 21.179176 25.732128
+## 331       Seattle 2020-12-09       0  39.0467468 22.409577 20.740497 25.082922
+## 332       Seattle 2020-12-10       0  44.6499801 21.823520 20.219533 24.436010
 ## 333       Seattle 2020-12-11       0  41.0317487 21.360273 19.788386 23.898195
 ## 334       Seattle 2020-12-12       1  31.4333850 18.545298 16.883304 21.081006
 ## 335       Seattle 2020-12-13       1  29.8504087 17.077637 15.555575 19.248781
 ## 336       Seattle 2020-12-14       0  39.1221266 17.686099 16.454667 19.627224
 ## 337         Tampa 2020-12-01       0  26.0733666 21.060204 17.895754 23.371869
-## 338         Tampa 2020-12-02       0  32.3334787 20.198651 17.689970 22.815499
+## 338         Tampa 2020-12-02       0  32.3334787 20.198651 17.689969 22.815499
 ## 339         Tampa 2020-12-03       0  37.4041694 20.714038 18.004996 23.043664
 ## 340         Tampa 2020-12-04       0  32.1143748 20.591663 17.998853 23.054152
 ## 341         Tampa 2020-12-05       1  41.0663350 18.375203 15.482943 20.691838
@@ -1420,28 +1420,28 @@ summary(case.rate.lme20201031.reweighed)
 ## Linear mixed-effects model fit by REML
 ##  Data: train 
 ##        AIC      BIC    logLik
-##   41595.47 41656.48 -20788.73
+##   41595.45 41656.46 -20788.72
 ## 
 ## Random effects:
 ##  Formula: ~casesTminus1.rate + casesTminus2.rate - 1 | city
 ##  Structure: General positive-definite, Log-Cholesky parametrization
 ##                   StdDev     Corr  
-## casesTminus1.rate 0.09554643 cssT1.
-## casesTminus2.rate 0.09728010 -1    
-## Residual          1.32152529       
+## casesTminus1.rate 0.09555232 cssT1.
+## casesTminus2.rate 0.09728807 -1    
+## Residual          1.32151717       
 ## 
 ## Variance function:
 ##  Structure: Power of variance covariate
 ##  Formula: ~fitted(.) 
 ##  Parameter estimates:
-##    power 
-## 0.674625 
+##     power 
+## 0.6746269 
 ## Fixed effects: case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend 
 ##                        Value  Std.Error   DF   t-value p-value
-## (Intercept)        0.9520479 0.06802497 6472  13.99556       0
-## casesTminus1.rate  0.4975345 0.02583252 6472  19.26001       0
-## casesTminus2.rate  0.4798991 0.02619555 6472  18.31987       0
-## weekend           -0.9910298 0.09279589 6472 -10.67967       0
+## (Intercept)        0.9520496 0.06802489 6472  13.99561       0
+## casesTminus1.rate  0.4975351 0.02583344 6472  19.25935       0
+## casesTminus2.rate  0.4798976 0.02619679 6472  18.31894       0
+## weekend           -0.9910276 0.09279567 6472 -10.67967       0
 ##  Correlation: 
 ##                   (Intr) cssT1. cssT2.
 ## casesTminus1.rate -0.092              
@@ -1450,7 +1450,7 @@ summary(case.rate.lme20201031.reweighed)
 ## 
 ## Standardized Within-Group Residuals:
 ##        Min         Q1        Med         Q3        Max 
-## -3.6056641 -0.4411622 -0.1069974  0.2841726 27.0673038 
+## -3.6056635 -0.4411650 -0.1070016  0.2841747 27.0672474 
 ## 
 ## Number of Observations: 6500
 ## Number of Groups: 25
@@ -1478,7 +1478,6 @@ plotFuncLME(model = case.rate.lme20201031.reweighed
 ```
 
 ![](lme_files/figure-html/unnamed-chunk-6-1.png)<!-- -->
-
 
 
 <!-- ## LME Weighted Residual + Walking-7 -->
@@ -1658,15 +1657,15 @@ plotFuncLM <- function(model, forecastLength)
     # add performance metrics
     geom_label(data = metrics %>% mutate(MAPE = paste0("MAPE = ", MAPE))
                , aes(label = MAPE), 
-              x = 0, y = max(filter(plotDF, variable == 'case.rate')$value), hjust="inward", vjust="inward",
+              x = 0, y = max(abs(filter(plotDF, variable == 'case.rate')$value)), hjust="inward", vjust="inward",
               inherit.aes = FALSE) +
     geom_label(data = metrics %>% mutate(MAE = paste0("MAE = ", MAE))
                , aes(label = MAE),
-              x = 0, y = max(filter(plotDF, variable == 'case.rate')$value)*4/5, hjust="inward", vjust="inward",
+              x = 0, y = max(abs(filter(plotDF, variable == 'case.rate')$value))*4/5, hjust="inward", vjust="inward",
               inherit.aes = FALSE) +
     geom_label(data = metrics %>% mutate(CP = paste0("CP = ", CP))
                 , aes(label = CP),
-               x = 0, y = max(filter(plotDF, variable == 'case.rate')$value)*3/5, hjust="inward", vjust="inward",
+               x = 0, y = max(abs(filter(plotDF, variable == 'case.rate')$value))*3/5, hjust="inward", vjust="inward",
                inherit.aes = FALSE) +
 
     theme_classic() +
@@ -1780,7 +1779,241 @@ plotFuncLM(model = case.rate.lm
 <!-- ``` -->
 
 
+## Log-transformed Case Rate
 
+
+
+```r
+train <- train %>% 
+  mutate(case.rate = log(case.rate)
+         , casesTminus1.rate = log(casesTminus1.rate)
+         , casesTminus2.rate = log(casesTminus2.rate)
+         )
+
+test7 <- test7  %>% 
+  mutate(case.rate = log(case.rate)
+         , casesTminus1.rate = log(casesTminus1.rate)
+         , casesTminus2.rate = log(casesTminus2.rate)
+         )
+
+test14 <- test14  %>% 
+  mutate(case.rate = log(case.rate)
+         , casesTminus1.rate = log(casesTminus1.rate)
+         , casesTminus2.rate = log(casesTminus2.rate)
+         )
+```
+
+
+### LME-Log
+
+```r
+lmeLog <- 
+  lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend,
+      random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city,
+      data = train
+      )
+
+summary(lmeLog)
+```
+
+```
+## Linear mixed-effects model fit by REML
+##  Data: train 
+##        AIC     BIC    logLik
+##   25900.57 25954.8 -12942.29
+## 
+## Random effects:
+##  Formula: ~casesTminus1.rate + casesTminus2.rate - 1 | city
+##  Structure: General positive-definite, Log-Cholesky parametrization
+##                   StdDev     Corr  
+## casesTminus1.rate 0.09351275 cssT1.
+## casesTminus2.rate 0.08782441 0.137 
+## Residual          1.75909966       
+## 
+## Fixed effects: case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend 
+##                        Value  Std.Error   DF   t-value p-value
+## (Intercept)        1.0396503 0.03659909 6472 28.406455       0
+## casesTminus1.rate  0.2515564 0.02448241 6472 10.274983       0
+## casesTminus2.rate  0.2584080 0.02321324 6472 11.131925       0
+## weekend           -0.2401524 0.04854667 6472 -4.946836       0
+##  Correlation: 
+##                   (Intr) cssT1. cssT2.
+## casesTminus1.rate -0.229              
+## casesTminus2.rate -0.180 -0.173       
+## weekend           -0.324 -0.018 -0.025
+## 
+## Standardized Within-Group Residuals:
+##          Min           Q1          Med           Q3          Max 
+## -15.72304903  -0.20486097   0.02669345   0.27405819   7.47661445 
+## 
+## Number of Observations: 6500
+## Number of Groups: 25
+```
+
+
+
+```r
+output <- metricsFuncLME(model = lmeLog)
+
+allMetrics <- allMetrics %>% left_join(
+    output$performMetrics %>%
+      rename_at(vars(-city), function(x) {paste0(x, "_lmeLog")})
+    , by = "city"
+    )
+
+plotFuncLME(model = lmeLog
+         , forecastLength = 7)
+```
+
+![](lme_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
+
+
+```r
+plotFuncLME(model = lmeLog
+         , forecastLength = 14)
+```
+
+![](lme_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
+
+### LME-Log weighted residual
+
+```r
+lmeLogWt <- 
+  lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend
+      , random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city
+      , data = train
+      , weights = varPower(form = ~ fitted(.))
+      , control = lmeControl(maxIter = 1e4) 
+      )
+
+summary(lmeLogWt)
+```
+
+```
+## Linear mixed-effects model fit by REML
+##  Data: train 
+##        AIC      BIC   logLik
+##   25800.41 25861.42 -12891.2
+## 
+## Random effects:
+##  Formula: ~casesTminus1.rate + casesTminus2.rate - 1 | city
+##  Structure: General positive-definite, Log-Cholesky parametrization
+##                   StdDev     Corr  
+## casesTminus1.rate 0.10625561 cssT1.
+## casesTminus2.rate 0.09622032 -0.114
+## Residual          1.93671067       
+## 
+## Variance function:
+##  Structure: Power of variance covariate
+##  Formula: ~fitted(.) 
+##  Parameter estimates:
+##      power 
+## -0.1542974 
+## Fixed effects: case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend 
+##                        Value  Std.Error   DF   t-value p-value
+## (Intercept)        1.1322453 0.03671046 6472 30.842583       0
+## casesTminus1.rate  0.2395835 0.02710003 6472  8.840712       0
+## casesTminus2.rate  0.2392684 0.02509924 6472  9.532894       0
+## weekend           -0.2214898 0.04817454 6472 -4.597652       0
+##  Correlation: 
+##                   (Intr) cssT1. cssT2.
+## casesTminus1.rate -0.210              
+## casesTminus2.rate -0.157 -0.333       
+## weekend           -0.316 -0.014 -0.022
+## 
+## Standardized Within-Group Residuals:
+##           Min            Q1           Med            Q3           Max 
+## -16.686571319  -0.230868155   0.009492476   0.270821840  10.272616797 
+## 
+## Number of Observations: 6500
+## Number of Groups: 25
+```
+
+```r
+output <- metricsFuncLME(model = lmeLogWt)
+
+allMetrics <- allMetrics %>% left_join(
+    output$performMetrics %>%
+      rename_at(vars(-city), function(x) {paste0(x, "_lmeLogWt")})
+    , by = "city"
+    )
+
+plotFuncLME(model = lmeLogWt
+         , forecastLength = 7)
+```
+
+![](lme_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
+
+
+```r
+plotFuncLME(model = lmeLogWt
+         , forecastLength = 14)
+```
+
+![](lme_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
+
+
+### Naive Multiple Regression-Log
+
+
+```r
+lmLog <- 
+  lm( case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend
+       , data = train
+       )
+
+summary(lmLog)
+```
+
+```
+## 
+## Call:
+## lm(formula = case.rate ~ casesTminus1.rate + casesTminus2.rate + 
+##     weekend, data = train)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -27.9029  -0.3448   0.1102   0.5062   9.1376 
+## 
+## Coefficients:
+##                   Estimate Std. Error t value Pr(>|t|)    
+## (Intercept)        1.10479    0.03566  30.981  < 2e-16 ***
+## casesTminus1.rate  0.23637    0.01165  20.284  < 2e-16 ***
+## casesTminus2.rate  0.25515    0.01096  23.283  < 2e-16 ***
+## weekend           -0.23918    0.04961  -4.821 1.46e-06 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 1.8 on 6496 degrees of freedom
+## Multiple R-squared:  0.1859,	Adjusted R-squared:  0.1855 
+## F-statistic: 494.5 on 3 and 6496 DF,  p-value: < 2.2e-16
+```
+
+```r
+output <- metricsFuncLM(model = lmLog)
+
+allMetrics <- allMetrics %>% left_join(
+    output$performMetrics %>%
+      rename_at(vars(-city), function(x) {paste0(x, "_lmLog")})
+    , by = "city"
+    )
+
+plotFuncLM(model = lmLog
+         , forecastLength = 7)
+```
+
+![](lme_files/figure-html/unnamed-chunk-18-1.png)<!-- -->
+
+
+
+
+
+```r
+plotFuncLM(model = lmLog
+         , forecastLength = 14)
+```
+
+![](lme_files/figure-html/unnamed-chunk-19-1.png)<!-- -->
 
 
 
@@ -1791,36 +2024,63 @@ plotFuncLM(model = case.rate.lm
 allMetrics %>% select(city, starts_with("MAPE_7d")) %>%
   arrange(as.character(city)) %>%
   as.data.frame() %>%
+  format(scientific = F) %>%
   print()
 ```
 
 ```
-##             city MAPE_7d_lme MAPE_7d_lmeWt MAPE_7d_lm
-## 1    Albuquerque        0.22          0.23       0.27
-## 2        Atlanta        0.70          0.53       0.56
-## 3      Baltimore        0.29          0.18       0.27
-## 4         Boston        0.63          0.55       0.60
-## 5      Charlotte        0.40          0.32       0.39
-## 6        Chicago        0.41          0.37       0.47
-## 7      Cleveland        0.20          0.14       0.25
-## 8         Dallas        0.25          0.22       0.22
-## 9         Denver        0.22          0.21       0.32
-## 10       Detroit        2.96          5.86       4.62
-## 11       Houston        0.52          0.23       0.29
-## 12  Indianapolis        0.26          0.25       0.38
-## 13   Los Angeles        0.47          0.38       0.46
-## 14    Louisville        0.39          0.31       0.39
-## 15       Memphis        0.24          0.29       0.24
-## 16         Miami        0.22          0.16       0.30
-## 17      New York        0.26          0.21       0.26
-## 18      Oklahoma        0.52          0.44       0.49
-## 19       Phoenix        0.78          0.85       0.79
-## 20    Pittsburgh        0.52          0.45       0.52
-## 21      Portland        0.20          0.36       0.20
-## 22    Sacramento        0.42          0.41       0.42
-## 23 San Francisco        0.39          0.33       0.36
-## 24       Seattle        0.54          0.87       0.66
-## 25         Tampa        0.39          0.33       0.38
+##             city MAPE_7d_lme MAPE_7d_lmeWt MAPE_7d_lm MAPE_7d_lmeLog
+## 1    Albuquerque        0.22          0.23       0.27           0.40
+## 2        Atlanta        0.70          0.53       0.56           0.30
+## 3      Baltimore        0.29          0.18       0.27           0.23
+## 4         Boston        0.63          0.55       0.60           0.58
+## 5      Charlotte        0.40          0.32       0.39           0.22
+## 6        Chicago        0.41          0.37       0.47           0.25
+## 7      Cleveland        0.20          0.14       0.25           0.63
+## 8         Dallas        0.25          0.22       0.22           0.22
+## 9         Denver        0.22          0.21       0.32           0.28
+## 10       Detroit        2.96          5.86       4.62           0.81
+## 11       Houston        0.52          0.23       0.29           0.20
+## 12  Indianapolis        0.26          0.25       0.38           0.41
+## 13   Los Angeles        0.47          0.38       0.46           0.30
+## 14    Louisville        0.39          0.31       0.39           0.41
+## 15       Memphis        0.24          0.29       0.24           0.14
+## 16         Miami        0.22          0.16       0.30           0.48
+## 17      New York        0.26          0.21       0.26           0.27
+## 18      Oklahoma        0.52          0.44       0.49           0.56
+## 19       Phoenix        0.78          0.85       0.79           0.43
+## 20    Pittsburgh        0.52          0.45       0.52           0.60
+## 21      Portland        0.20          0.36       0.20           0.29
+## 22    Sacramento        0.42          0.41       0.42           0.43
+## 23 San Francisco        0.39          0.33       0.36           0.30
+## 24       Seattle        0.54          0.87       0.66           0.27
+## 25         Tampa        0.39          0.33       0.38           0.50
+##    MAPE_7d_lmeLogWt MAPE_7d_lmLog
+## 1              0.40          0.44
+## 2              0.30          0.41
+## 3              0.25          0.36
+## 4              0.57          0.44
+## 5              0.20          0.39
+## 6              0.25          0.44
+## 7              0.61          0.41
+## 8              0.23          0.39
+## 9              0.28          0.42
+## 10             0.84          0.94
+## 11             0.20          0.32
+## 12             0.43          0.45
+## 13             0.31          0.43
+## 14             0.41          0.43
+## 15             0.08          0.37
+## 16             0.48          0.41
+## 17             0.26          0.34
+## 18             0.55          0.43
+## 19             0.42          0.39
+## 20             0.59          0.44
+## 21             0.30          0.32
+## 22             0.45          0.36
+## 23             0.31          0.31
+## 24             0.27          0.26
+## 25             0.49          0.35
 ```
 
 
@@ -1832,32 +2092,58 @@ allMetrics %>% select(city, starts_with("MAE_7d")) %>%
 ```
 
 ```
-##             city MAE_7d_lme MAE_7d_lmeWt MAE_7d_lm
-## 1    Albuquerque      20.32        21.58     27.40
-## 2        Atlanta      32.14        25.61     26.53
-## 3      Baltimore      12.74         8.33     11.79
-## 4         Boston      43.25        38.53     41.08
-## 5      Charlotte      22.98        18.03     22.52
-## 6        Chicago      31.90        29.50     36.88
-## 7      Cleveland      15.24        10.94     19.62
-## 8         Dallas      16.32        12.98     14.27
-## 9         Denver      17.04        16.46     24.92
-## 10       Detroit      28.03        18.16     18.12
-## 11       Houston      17.66         5.73      8.20
-## 12  Indianapolis      28.74        26.83     39.98
-## 13   Los Angeles      35.82        29.12     35.18
-## 14    Louisville      30.25        23.84     30.34
-## 15       Memphis      12.73        12.74     12.80
-## 16         Miami      13.60        10.28     18.29
-## 17      New York       9.03         7.16      8.98
-## 18      Oklahoma      49.10        41.72     46.22
-## 19       Phoenix      58.65        58.22     57.96
-## 20    Pittsburgh      40.51        35.90     40.74
-## 21      Portland       5.89        11.06      5.83
-## 22    Sacramento      24.05        16.83     20.12
-## 23 San Francisco      14.02        11.06     12.32
-## 24       Seattle      14.56        17.46     15.36
-## 25         Tampa      13.28        11.27     12.92
+##             city MAE_7d_lme MAE_7d_lmeWt MAE_7d_lm MAE_7d_lmeLog
+## 1    Albuquerque      20.32        21.58     27.40          1.75
+## 2        Atlanta      32.14        25.61     26.53          1.13
+## 3      Baltimore      12.74         8.33     11.79          0.87
+## 4         Boston      43.25        38.53     41.08          2.40
+## 5      Charlotte      22.98        18.03     22.52          0.89
+## 6        Chicago      31.90        29.50     36.88          1.07
+## 7      Cleveland      15.24        10.94     19.62          2.65
+## 8         Dallas      16.32        12.98     14.27          0.90
+## 9         Denver      17.04        16.46     24.92          1.20
+## 10       Detroit      28.03        18.16     18.12          2.52
+## 11       Houston      17.66         5.73      8.20          0.70
+## 12  Indianapolis      28.74        26.83     39.98          1.91
+## 13   Los Angeles      35.82        29.12     35.18          1.29
+## 14    Louisville      30.25        23.84     30.34          1.76
+## 15       Memphis      12.73        12.74     12.80          0.57
+## 16         Miami      13.60        10.28     18.29          1.97
+## 17      New York       9.03         7.16      8.98          0.94
+## 18      Oklahoma      49.10        41.72     46.22          2.44
+## 19       Phoenix      58.65        58.22     57.96          1.82
+## 20    Pittsburgh      40.51        35.90     40.74          2.57
+## 21      Portland       5.89        11.06      5.83          1.03
+## 22    Sacramento      24.05        16.83     20.12          1.69
+## 23 San Francisco      14.02        11.06     12.32          1.07
+## 24       Seattle      14.56        17.46     15.36          0.93
+## 25         Tampa      13.28        11.27     12.92          1.77
+##    MAE_7d_lmeLogWt MAE_7d_lmLog
+## 1             1.79         1.93
+## 2             1.12         1.54
+## 3             0.91         1.33
+## 4             2.38         1.84
+## 5             0.83         1.58
+## 6             1.08         1.91
+## 7             2.59         1.76
+## 8             0.95         1.62
+## 9             1.20         1.83
+## 10            2.44         1.83
+## 11            0.73         1.14
+## 12            1.97         2.10
+## 13            1.33         1.87
+## 14            1.77         1.85
+## 15            0.35         1.47
+## 16            1.96         1.67
+## 17            0.92         1.18
+## 18            2.40         1.88
+## 19            1.79         1.70
+## 20            2.52         1.87
+## 21            1.06         1.13
+## 22            1.76         1.43
+## 23            1.08         1.08
+## 24            0.94         0.90
+## 25            1.72         1.23
 ```
 
 
@@ -1869,32 +2155,58 @@ allMetrics %>% select(city, starts_with("CP_7d")) %>%
 ```
 
 ```
-##             city CP_7d_lme CP_7d_lmeWt CP_7d_lm
-## 1    Albuquerque      0.57        0.14     0.43
-## 2        Atlanta      0.14        0.00     0.14
-## 3      Baltimore      0.71        0.43     0.71
-## 4         Boston      0.14        0.00     0.29
-## 5      Charlotte      0.43        0.00     0.43
-## 6        Chicago      0.00        0.00     0.00
-## 7      Cleveland      0.86        0.29     0.57
-## 8         Dallas      0.57        0.00     0.71
-## 9         Denver      0.71        0.00     0.29
-## 10       Detroit      0.14        0.29     0.57
-## 11       Houston      0.43        0.43     0.86
-## 12  Indianapolis      0.14        0.14     0.14
-## 13   Los Angeles      0.14        0.00     0.14
-## 14    Louisville      0.14        0.00     0.14
-## 15       Memphis      0.71        0.14     0.71
-## 16         Miami      0.71        0.14     0.43
-## 17      New York      1.00        0.29     1.00
-## 18      Oklahoma      0.14        0.00     0.29
-## 19       Phoenix      0.29        0.00     0.29
-## 20    Pittsburgh      0.14        0.00     0.29
-## 21      Portland      0.86        0.00     0.86
-## 22    Sacramento      0.43        0.00     0.71
-## 23 San Francisco      0.57        0.14     0.71
-## 24       Seattle      0.86        0.14     0.71
-## 25         Tampa      0.86        0.00     0.86
+##             city CP_7d_lme CP_7d_lmeWt CP_7d_lm CP_7d_lmeLog CP_7d_lmeLogWt
+## 1    Albuquerque      0.57        0.14     0.43            1              1
+## 2        Atlanta      0.14        0.00     0.14            1              1
+## 3      Baltimore      0.71        0.43     0.71            1              1
+## 4         Boston      0.14        0.00     0.29            1              1
+## 5      Charlotte      0.43        0.00     0.43            1              1
+## 6        Chicago      0.00        0.00     0.00            1              1
+## 7      Cleveland      0.86        0.29     0.57            1              1
+## 8         Dallas      0.57        0.00     0.71            1              1
+## 9         Denver      0.71        0.00     0.29            1              1
+## 10       Detroit      0.14        0.29     0.57            1              1
+## 11       Houston      0.43        0.43     0.86            1              1
+## 12  Indianapolis      0.14        0.14     0.14            1              1
+## 13   Los Angeles      0.14        0.00     0.14            1              1
+## 14    Louisville      0.14        0.00     0.14            1              1
+## 15       Memphis      0.71        0.14     0.71            1              1
+## 16         Miami      0.71        0.14     0.43            1              1
+## 17      New York      1.00        0.29     1.00            1              1
+## 18      Oklahoma      0.14        0.00     0.29            1              1
+## 19       Phoenix      0.29        0.00     0.29            1              1
+## 20    Pittsburgh      0.14        0.00     0.29            1              1
+## 21      Portland      0.86        0.00     0.86            1              1
+## 22    Sacramento      0.43        0.00     0.71            1              1
+## 23 San Francisco      0.57        0.14     0.71            1              1
+## 24       Seattle      0.86        0.14     0.71            1              1
+## 25         Tampa      0.86        0.00     0.86            1              1
+##    CP_7d_lmLog
+## 1            1
+## 2            1
+## 3            1
+## 4            1
+## 5            1
+## 6            1
+## 7            1
+## 8            1
+## 9            1
+## 10           1
+## 11           1
+## 12           1
+## 13           1
+## 14           1
+## 15           1
+## 16           1
+## 17           1
+## 18           1
+## 19           1
+## 20           1
+## 21           1
+## 22           1
+## 23           1
+## 24           1
+## 25           1
 ```
 
 
@@ -1904,36 +2216,63 @@ allMetrics %>% select(city, starts_with("CP_7d")) %>%
 allMetrics %>% select(city, starts_with("MAPE_14d")) %>%
   arrange(as.character(city)) %>%
   as.data.frame() %>%
+  format(scientific = F) %>%
   print()
 ```
 
 ```
-##             city MAPE_14d_lme MAPE_14d_lmeWt MAPE_14d_lm
-## 1    Albuquerque         0.22           0.19        0.34
-## 2        Atlanta         0.76           0.56        0.61
-## 3      Baltimore         0.38           0.21        0.35
-## 4         Boston         0.69           0.58        0.65
-## 5      Charlotte         0.49           0.36        0.48
-## 6        Chicago         0.38           0.32        0.50
-## 7      Cleveland         0.35           0.25        0.43
-## 8         Dallas         0.35           0.28        0.32
-## 9         Denver         0.22           0.23        0.31
-## 10       Detroit         2.76           7.27        4.98
-## 11       Houston         0.60           0.26        0.27
-## 12  Indianapolis         0.29           0.25        0.45
-## 13   Los Angeles         0.59           0.47        0.58
-## 14    Louisville         0.45           0.31        0.45
-## 15       Memphis         0.34           0.33        0.35
-## 16         Miami         0.25           0.16        0.37
-## 17      New York         0.31           0.21        0.32
-## 18      Oklahoma         0.61           0.45        0.55
-## 19       Phoenix         0.77           0.82        0.78
-## 20    Pittsburgh         0.59           0.51        0.61
-## 21      Portland         0.18           0.37        0.18
-## 22    Sacramento         0.59           0.67        0.63
-## 23 San Francisco         0.48           0.32        0.40
-## 24       Seattle         0.49           0.50        0.47
-## 25         Tampa         0.47           0.39        0.46
+##             city MAPE_14d_lme MAPE_14d_lmeWt MAPE_14d_lm MAPE_14d_lmeLog
+## 1    Albuquerque         0.22           0.19        0.34            0.45
+## 2        Atlanta         0.76           0.56        0.61            0.33
+## 3      Baltimore         0.38           0.21        0.35            0.28
+## 4         Boston         0.69           0.58        0.65            0.61
+## 5      Charlotte         0.49           0.36        0.48            0.28
+## 6        Chicago         0.38           0.32        0.50            0.27
+## 7      Cleveland         0.35           0.25        0.43            0.67
+## 8         Dallas         0.35           0.28        0.32            0.27
+## 9         Denver         0.22           0.23        0.31            0.30
+## 10       Detroit         2.76           7.28        4.98           -0.40
+## 11       Houston         0.60           0.26        0.27            0.22
+## 12  Indianapolis         0.29           0.25        0.45            0.46
+## 13   Los Angeles         0.59           0.47        0.58            0.36
+## 14    Louisville         0.45           0.31        0.45            0.45
+## 15       Memphis         0.34           0.33        0.35            0.21
+## 16         Miami         0.25           0.16        0.37            0.52
+## 17      New York         0.31           0.21        0.32            0.31
+## 18      Oklahoma         0.61           0.45        0.55            0.60
+## 19       Phoenix         0.77           0.82        0.78            0.49
+## 20    Pittsburgh         0.59           0.51        0.61            0.64
+## 21      Portland         0.18           0.37        0.18            0.34
+## 22    Sacramento         0.59           0.67        0.63            0.47
+## 23 San Francisco         0.48           0.32        0.40            0.36
+## 24       Seattle         0.49           0.50        0.47            0.36
+## 25         Tampa         0.47           0.39        0.46            0.55
+##    MAPE_14d_lmeLogWt MAPE_14d_lmLog
+## 1               0.45           0.48
+## 2               0.33           0.45
+## 3               0.29           0.40
+## 4               0.60           0.48
+## 5               0.26           0.45
+## 6               0.27           0.47
+## 7               0.65           0.48
+## 8               0.28           0.45
+## 9               0.30           0.45
+## 10             -0.53          -1.25
+## 11              0.23           0.37
+## 12              0.47           0.50
+## 13              0.37           0.49
+## 14              0.45           0.47
+## 15              0.15           0.44
+## 16              0.51           0.45
+## 17              0.29           0.37
+## 18              0.59           0.48
+## 19              0.47           0.45
+## 20              0.62           0.49
+## 21              0.34           0.36
+## 22              0.48           0.40
+## 23              0.36           0.36
+## 24              0.35           0.34
+## 25              0.53           0.40
 ```
 
 
@@ -1945,32 +2284,58 @@ allMetrics %>% select(city, starts_with("MAE_14d")) %>%
 ```
 
 ```
-##             city MAE_14d_lme MAE_14d_lmeWt MAE_14d_lm
-## 1    Albuquerque       19.07         16.80      30.13
-## 2        Atlanta       38.25         29.17      31.08
-## 3      Baltimore       16.53          9.58      15.26
-## 4         Boston       47.69         40.82      44.93
-## 5      Charlotte       30.23         22.01      29.63
-## 6        Chicago       27.60         23.62      34.99
-## 7      Cleveland       37.53         28.48      44.75
-## 8         Dallas       28.24         19.13      25.26
-## 9         Denver       14.07         14.18      21.85
-## 10       Detroit       29.27         16.76      16.89
-## 11       Houston       22.23          8.61      10.12
-## 12  Indianapolis       29.92         26.40      46.24
-## 13   Los Angeles       53.47         43.25      52.71
-## 14    Louisville       33.87         23.76      33.68
-## 15       Memphis       27.14         22.26      27.95
-## 16         Miami       15.29          9.78      22.28
-## 17      New York       10.52          7.12      10.70
-## 18      Oklahoma       53.06         40.24      48.57
-## 19       Phoenix       72.39         71.28      71.93
-## 20    Pittsburgh       51.87         45.39      52.88
-## 21      Portland        5.55         11.28       5.47
-## 22    Sacramento       35.13         21.99      28.12
-## 23 San Francisco       18.83         12.84      15.47
-## 24       Seattle       15.51         11.06      13.00
-## 25         Tampa       19.12         15.86      18.63
+##             city MAE_14d_lme MAE_14d_lmeWt MAE_14d_lm MAE_14d_lmeLog
+## 1    Albuquerque       19.07         16.80      30.13           1.95
+## 2        Atlanta       38.25         29.17      31.08           1.29
+## 3      Baltimore       16.53          9.58      15.26           1.04
+## 4         Boston       47.69         40.82      44.93           2.56
+## 5      Charlotte       30.23         22.01      29.63           1.13
+## 6        Chicago       27.60         23.62      34.99           1.14
+## 7      Cleveland       37.53         28.48      44.75           2.95
+## 8         Dallas       28.24         19.13      25.26           1.14
+## 9         Denver       14.07         14.18      21.85           1.27
+## 10       Detroit       29.27         16.76      16.89           2.50
+## 11       Houston       22.23          8.61      10.12           0.81
+## 12  Indianapolis       29.92         26.40      46.24           2.14
+## 13   Los Angeles       53.47         43.25      52.71           1.62
+## 14    Louisville       33.87         23.76      33.68           1.93
+## 15       Memphis       27.14         22.26      27.95           0.90
+## 16         Miami       15.29          9.78      22.28           2.14
+## 17      New York       10.52          7.12      10.70           1.08
+## 18      Oklahoma       53.06         40.24      48.57           2.61
+## 19       Phoenix       72.39         71.28      71.93           2.14
+## 20    Pittsburgh       51.87         45.39      52.88           2.80
+## 21      Portland        5.55         11.28       5.47           1.20
+## 22    Sacramento       35.13         21.99      28.12           1.89
+## 23 San Francisco       18.83         12.84      15.47           1.30
+## 24       Seattle       15.51         11.06      13.00           1.26
+## 25         Tampa       19.12         15.86      18.63           1.98
+##    MAE_14d_lmeLogWt MAE_14d_lmLog
+## 1              1.95          2.10
+## 2              1.27          1.73
+## 3              1.06          1.50
+## 4              2.51          2.01
+## 5              1.05          1.83
+## 6              1.13          2.00
+## 7              2.88          2.14
+## 8              1.17          1.85
+## 9              1.24          1.88
+## 10             2.42          1.86
+## 11             0.82          1.31
+## 12             2.17          2.30
+## 13             1.64          2.20
+## 14             1.92          2.00
+## 15             0.64          1.84
+## 16             2.10          1.84
+## 17             1.03          1.31
+## 18             2.55          2.09
+## 19             2.09          2.00
+## 20             2.73          2.14
+## 21             1.21          1.28
+## 22             1.93          1.63
+## 23             1.30          1.30
+## 24             1.26          1.22
+## 25             1.92          1.45
 ```
 
 
@@ -1982,32 +2347,58 @@ allMetrics %>% select(city, starts_with("CP_14d")) %>%
 ```
 
 ```
-##             city CP_14d_lme CP_14d_lmeWt CP_14d_lm
-## 1    Albuquerque       0.50         0.14      0.29
-## 2        Atlanta       0.07         0.00      0.14
-## 3      Baltimore       0.57         0.36      0.64
-## 4         Boston       0.07         0.00      0.14
-## 5      Charlotte       0.21         0.00      0.21
-## 6        Chicago       0.14         0.00      0.00
-## 7      Cleveland       0.43         0.14      0.29
-## 8         Dallas       0.36         0.00      0.57
-## 9         Denver       0.79         0.00      0.43
-## 10       Detroit       0.14         0.29      0.57
-## 11       Houston       0.36         0.29      0.86
-## 12  Indianapolis       0.21         0.07      0.07
-## 13   Los Angeles       0.07         0.00      0.07
-## 14    Louisville       0.14         0.00      0.14
-## 15       Memphis       0.50         0.07      0.50
-## 16         Miami       0.64         0.07      0.21
-## 17      New York       0.93         0.21      0.93
-## 18      Oklahoma       0.07         0.00      0.14
-## 19       Phoenix       0.21         0.00      0.21
-## 20    Pittsburgh       0.07         0.00      0.14
-## 21      Portland       0.93         0.00      0.93
-## 22    Sacramento       0.29         0.00      0.43
-## 23 San Francisco       0.57         0.14      0.64
-## 24       Seattle       0.71         0.14      0.86
-## 25         Tampa       0.64         0.00      0.64
+##             city CP_14d_lme CP_14d_lmeWt CP_14d_lm CP_14d_lmeLog
+## 1    Albuquerque       0.50         0.14      0.29          1.00
+## 2        Atlanta       0.07         0.00      0.14          1.00
+## 3      Baltimore       0.57         0.36      0.64          1.00
+## 4         Boston       0.07         0.00      0.14          1.00
+## 5      Charlotte       0.21         0.00      0.21          1.00
+## 6        Chicago       0.14         0.00      0.00          1.00
+## 7      Cleveland       0.43         0.14      0.29          0.86
+## 8         Dallas       0.36         0.00      0.57          1.00
+## 9         Denver       0.79         0.00      0.43          1.00
+## 10       Detroit       0.14         0.29      0.57          1.00
+## 11       Houston       0.36         0.29      0.86          1.00
+## 12  Indianapolis       0.21         0.07      0.07          1.00
+## 13   Los Angeles       0.07         0.00      0.07          1.00
+## 14    Louisville       0.14         0.00      0.14          1.00
+## 15       Memphis       0.50         0.07      0.50          1.00
+## 16         Miami       0.64         0.07      0.21          1.00
+## 17      New York       0.93         0.21      0.93          1.00
+## 18      Oklahoma       0.07         0.00      0.14          1.00
+## 19       Phoenix       0.21         0.00      0.21          1.00
+## 20    Pittsburgh       0.07         0.00      0.14          0.93
+## 21      Portland       0.93         0.00      0.93          1.00
+## 22    Sacramento       0.29         0.00      0.43          1.00
+## 23 San Francisco       0.57         0.14      0.64          1.00
+## 24       Seattle       0.71         0.14      0.86          1.00
+## 25         Tampa       0.64         0.00      0.64          1.00
+##    CP_14d_lmeLogWt CP_14d_lmLog
+## 1             1.00            1
+## 2             1.00            1
+## 3             1.00            1
+## 4             1.00            1
+## 5             1.00            1
+## 6             1.00            1
+## 7             0.93            1
+## 8             1.00            1
+## 9             1.00            1
+## 10            1.00            1
+## 11            1.00            1
+## 12            1.00            1
+## 13            1.00            1
+## 14            1.00            1
+## 15            1.00            1
+## 16            1.00            1
+## 17            1.00            1
+## 18            1.00            1
+## 19            1.00            1
+## 20            1.00            1
+## 21            1.00            1
+## 22            1.00            1
+## 23            1.00            1
+## 24            1.00            1
+## 25            1.00            1
 ```
 
 
@@ -2097,16 +2488,16 @@ summary(case.rate.lme20200831)
 ##  Formula: ~casesTminus1.rate + casesTminus2.rate - 1 | city
 ##  Structure: General positive-definite, Log-Cholesky parametrization
 ##                   StdDev     Corr  
-## casesTminus1.rate 0.09815224 cssT1.
-## casesTminus2.rate 0.08061339 -0.948
-## Residual          5.20127586       
+## casesTminus1.rate 0.09813651 cssT1.
+## casesTminus2.rate 0.08060539 -0.948
+## Residual          5.20127902       
 ## 
 ## Fixed effects: case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend 
 ##                        Value  Std.Error   DF   t-value p-value
-## (Intercept)        1.6412112 0.12535408 4197 13.092603       0
-## casesTminus1.rate  0.5370104 0.02655367 4197 20.223582       0
-## casesTminus2.rate  0.3498791 0.02340716 4197 14.947522       0
-## weekend           -1.7815450 0.17832506 4197 -9.990436       0
+## (Intercept)        1.6411900 0.12535355 4197 13.092489       0
+## casesTminus1.rate  0.5370146 0.02655103 4197 20.225757       0
+## casesTminus2.rate  0.3498781 0.02340597 4197 14.948240       0
+## weekend           -1.7815460 0.17832514 4197 -9.990437       0
 ##  Correlation: 
 ##                   (Intr) cssT1. cssT2.
 ## casesTminus1.rate -0.149              
@@ -2115,7 +2506,7 @@ summary(case.rate.lme20200831)
 ## 
 ## Standardized Within-Group Residuals:
 ##        Min         Q1        Med         Q3        Max 
-## -9.3473822 -0.3530025 -0.1114346  0.2555329 12.5508542 
+## -9.3473764 -0.3529982 -0.1114401  0.2555296 12.5508502 
 ## 
 ## Number of Observations: 4225
 ## Number of Groups: 25
@@ -2132,14 +2523,14 @@ plotFuncLME(model = case.rate.lme20200831
          , forecastLength = 7)
 ```
 
-![](lme_files/figure-html/unnamed-chunk-18-1.png)<!-- -->
+![](lme_files/figure-html/unnamed-chunk-28-1.png)<!-- -->
 
 ```r
 plotFuncLME(model = case.rate.lme20200831
          , forecastLength = 14)
 ```
 
-![](lme_files/figure-html/unnamed-chunk-19-1.png)<!-- -->
+![](lme_files/figure-html/unnamed-chunk-29-1.png)<!-- -->
 
 ### Weighted Residual LME
 
@@ -2162,15 +2553,15 @@ summary(case.rate.lme20200831.reweighed)
 ## Linear mixed-effects model fit by REML
 ##  Data: train 
 ##        AIC      BIC    logLik
-##   23301.33 23358.46 -11641.66
+##   23301.33 23358.46 -11641.67
 ## 
 ## Random effects:
 ##  Formula: ~casesTminus1.rate + casesTminus2.rate - 1 | city
 ##  Structure: General positive-definite, Log-Cholesky parametrization
 ##                   StdDev     Corr  
-## casesTminus1.rate 0.06852649 cssT1.
-## casesTminus2.rate 0.06668453 -1    
-## Residual          1.32656344       
+## casesTminus1.rate 0.06851898 cssT1.
+## casesTminus2.rate 0.06667704 -1    
+## Residual          1.32656446       
 ## 
 ## Variance function:
 ##  Structure: Power of variance covariate
@@ -2180,10 +2571,10 @@ summary(case.rate.lme20200831.reweighed)
 ## 0.5527338 
 ## Fixed effects: case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend 
 ##                        Value  Std.Error   DF   t-value p-value
-## (Intercept)        0.8459345 0.06310030 4197 13.406188       0
-## casesTminus1.rate  0.5354756 0.02316015 4197 23.120559       0
-## casesTminus2.rate  0.4140599 0.02277953 4197 18.176841       0
-## weekend           -0.8787764 0.09039718 4197 -9.721281       0
+## (Intercept)        0.8459357 0.06310041 4197 13.406184       0
+## casesTminus1.rate  0.5354747 0.02315918 4197 23.121486       0
+## casesTminus2.rate  0.4140605 0.02277857 4197 18.177633       0
+## weekend           -0.8787765 0.09039732 4197 -9.721267       0
 ##  Correlation: 
 ##                   (Intr) cssT1. cssT2.
 ## casesTminus1.rate -0.115              
@@ -2192,7 +2583,7 @@ summary(case.rate.lme20200831.reweighed)
 ## 
 ## Standardized Within-Group Residuals:
 ##        Min         Q1        Med         Q3        Max 
-## -4.1119091 -0.4901584 -0.1268015  0.3505706 22.1203831 
+## -4.1119073 -0.4901586 -0.1268049  0.3505693 22.1203539 
 ## 
 ## Number of Observations: 4225
 ## Number of Groups: 25
@@ -2212,14 +2603,14 @@ plotFuncLME(model = case.rate.lme20200831.reweighed
          , forecastLength = 7)
 ```
 
-![](lme_files/figure-html/unnamed-chunk-21-1.png)<!-- -->
+![](lme_files/figure-html/unnamed-chunk-31-1.png)<!-- -->
 
 ```r
 plotFuncLME(model = case.rate.lme20200831.reweighed
          , forecastLength = 14)
 ```
 
-![](lme_files/figure-html/unnamed-chunk-22-1.png)<!-- -->
+![](lme_files/figure-html/unnamed-chunk-32-1.png)<!-- -->
 
 
 
@@ -2272,7 +2663,7 @@ plotFuncLM(model = case.rate.lm20200831
          , forecastLength = 7)
 ```
 
-![](lme_files/figure-html/unnamed-chunk-24-1.png)<!-- -->
+![](lme_files/figure-html/unnamed-chunk-34-1.png)<!-- -->
 
 
 
@@ -2283,45 +2674,302 @@ plotFuncLM(model = case.rate.lm
          , forecastLength = 14)
 ```
 
-![](lme_files/figure-html/unnamed-chunk-25-1.png)<!-- -->
+![](lme_files/figure-html/unnamed-chunk-35-1.png)<!-- -->
 
 
-### Metrics for Mar-Aug
+
+## Log-transformed Case Rate
+
+
+
+```r
+train <- train %>% 
+  mutate(case.rate = log(case.rate)
+         , casesTminus1.rate = log(casesTminus1.rate)
+         , casesTminus2.rate = log(casesTminus2.rate)
+         )
+
+test7 <- test7  %>% 
+  mutate(case.rate = log(case.rate)
+         , casesTminus1.rate = log(casesTminus1.rate)
+         , casesTminus2.rate = log(casesTminus2.rate)
+         )
+
+test14 <- test14  %>% 
+  mutate(case.rate = log(case.rate)
+         , casesTminus1.rate = log(casesTminus1.rate)
+         , casesTminus2.rate = log(casesTminus2.rate)
+         )
+```
+
+
+### LME-Log
+
+```r
+lmeLog <- 
+  lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend,
+      random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city,
+      data = train
+      )
+
+summary(lmeLog)
+```
+
+```
+## Linear mixed-effects model fit by REML
+##  Data: train 
+##       AIC      BIC    logLik
+##   14135.4 14186.18 -7059.701
+## 
+## Random effects:
+##  Formula: ~casesTminus1.rate + casesTminus2.rate - 1 | city
+##  Structure: General positive-definite, Log-Cholesky parametrization
+##                   StdDev    Corr  
+## casesTminus1.rate 0.1820980 cssT1.
+## casesTminus2.rate 0.1225341 -0.695
+## Residual          1.2704609       
+## 
+## Fixed effects: case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend 
+##                        Value  Std.Error   DF   t-value p-value
+## (Intercept)        0.6463696 0.03191557 4197 20.252481   0e+00
+## casesTminus1.rate  0.4102606 0.04300078 4197  9.540771   0e+00
+## casesTminus2.rate  0.2408070 0.03227185 4197  7.461829   0e+00
+## weekend           -0.1709743 0.04358884 4197 -3.922434   1e-04
+##  Correlation: 
+##                   (Intr) cssT1. cssT2.
+## casesTminus1.rate -0.172              
+## casesTminus2.rate -0.064 -0.724       
+## weekend           -0.327 -0.008 -0.027
+## 
+## Standardized Within-Group Residuals:
+##          Min           Q1          Med           Q3          Max 
+## -20.46567275  -0.22068095   0.03775951   0.28241727  11.76799406 
+## 
+## Number of Observations: 4225
+## Number of Groups: 25
+```
+
+
+
+```r
+output <- metricsFuncLME(model = lmeLog)
+
+allMetrics <- allMetrics %>% left_join(
+    output$performMetrics %>%
+      rename_at(vars(-city), function(x) {paste0(x, "_lmeLog")})
+    , by = "city"
+    )
+
+plotFuncLME(model = lmeLog
+         , forecastLength = 7)
+```
+
+![](lme_files/figure-html/unnamed-chunk-38-1.png)<!-- -->
+
+
+```r
+plotFuncLME(model = lmeLog
+         , forecastLength = 14)
+```
+
+![](lme_files/figure-html/unnamed-chunk-39-1.png)<!-- -->
+
+### LME-Log weighted residual
+
+```r
+lmeLogWt <- 
+  lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend
+      , random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city
+      , data = train
+      , weights = varPower(form = ~ fitted(.))
+      , control = lmeControl(maxIter = 1e4) 
+      )
+
+summary(lmeLogWt)
+```
+
+```
+## Linear mixed-effects model fit by REML
+##  Data: train 
+##       AIC      BIC    logLik
+##   13960.8 14017.93 -6971.399
+## 
+## Random effects:
+##  Formula: ~casesTminus1.rate + casesTminus2.rate - 1 | city
+##  Structure: General positive-definite, Log-Cholesky parametrization
+##                   StdDev    Corr  
+## casesTminus1.rate 0.1844795 cssT1.
+## casesTminus2.rate 0.1210444 -0.618
+## Residual          1.3192520       
+## 
+## Variance function:
+##  Structure: Power of variance covariate
+##  Formula: ~fitted(.) 
+##  Parameter estimates:
+##      power 
+## -0.1256153 
+## Fixed effects: case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend 
+##                        Value  Std.Error   DF   t-value p-value
+## (Intercept)        0.7492342 0.03191732 4197 23.474221   0e+00
+## casesTminus1.rate  0.3828789 0.04316182 4197  8.870777   0e+00
+## casesTminus2.rate  0.2221696 0.03176681 4197  6.993763   0e+00
+## weekend           -0.1569262 0.04246874 4197 -3.695098   2e-04
+##  Correlation: 
+##                   (Intr) cssT1. cssT2.
+## casesTminus1.rate -0.172              
+## casesTminus2.rate -0.062 -0.673       
+## weekend           -0.316 -0.008 -0.025
+## 
+## Standardized Within-Group Residuals:
+##          Min           Q1          Med           Q3          Max 
+## -20.71510703  -0.26534136   0.01447927   0.28760480  15.63794996 
+## 
+## Number of Observations: 4225
+## Number of Groups: 25
+```
+
+```r
+output <- metricsFuncLME(model = lmeLogWt)
+
+allMetrics <- allMetrics %>% left_join(
+    output$performMetrics %>%
+      rename_at(vars(-city), function(x) {paste0(x, "_lmeLogWt")})
+    , by = "city"
+    )
+
+plotFuncLME(model = lmeLogWt
+         , forecastLength = 7)
+```
+
+![](lme_files/figure-html/unnamed-chunk-41-1.png)<!-- -->
+
+
+```r
+plotFuncLME(model = lmeLogWt
+         , forecastLength = 14)
+```
+
+![](lme_files/figure-html/unnamed-chunk-42-1.png)<!-- -->
+
+
+### Naive Multiple Regression-Log
+
+
+```r
+lmLog <- 
+  lm( case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend
+       , data = train
+       )
+
+summary(lmLog)
+```
+
+```
+## 
+## Call:
+## lm(formula = case.rate ~ casesTminus1.rate + casesTminus2.rate + 
+##     weekend, data = train)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -26.4123  -0.2970   0.0594   0.3976  12.6246 
+## 
+## Coefficients:
+##                   Estimate Std. Error t value Pr(>|t|)    
+## (Intercept)        0.71005    0.03079   23.06  < 2e-16 ***
+## casesTminus1.rate  0.32959    0.01349   24.43  < 2e-16 ***
+## casesTminus2.rate  0.30650    0.01203   25.47  < 2e-16 ***
+## weekend           -0.17759    0.04531   -3.92 9.01e-05 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 1.323 on 4221 degrees of freedom
+## Multiple R-squared:  0.3934,	Adjusted R-squared:  0.393 
+## F-statistic: 912.6 on 3 and 4221 DF,  p-value: < 2.2e-16
+```
+
+```r
+output <- metricsFuncLM(model = lmLog)
+
+allMetrics <- allMetrics %>% left_join(
+    output$performMetrics %>%
+      rename_at(vars(-city), function(x) {paste0(x, "_lmLog")})
+    , by = "city"
+    )
+
+plotFuncLM(model = lmLog
+         , forecastLength = 7)
+```
+
+![](lme_files/figure-html/unnamed-chunk-44-1.png)<!-- -->
+
+
+
+
+
+## Metrics for Mar-Aug
 
 ```r
 allMetrics %>% select(city, starts_with("MAPE_7d")) %>%
   arrange(as.character(city)) %>%
   as.data.frame() %>%
+  format(scientific = F) %>%
   print()
 ```
 
 ```
-##             city MAPE_7d_lme MAPE_7d_lmeWt MAPE_7d_lm
-## 1    Albuquerque        1.26          0.97       1.25
-## 2        Atlanta        0.48          0.50       0.48
-## 3      Baltimore        0.23          0.23       0.22
-## 4         Boston         Inf           Inf        Inf
-## 5      Charlotte        0.27          0.28       0.28
-## 6        Chicago        0.40          0.41       0.40
-## 7      Cleveland        0.32          0.30       0.36
-## 8         Dallas        1.28          1.40       1.43
-## 9         Denver        0.36          0.31       0.38
-## 10       Detroit         Inf           Inf        Inf
-## 11       Houston        1.62          1.73       1.62
-## 12  Indianapolis        0.20          0.22       0.22
-## 13   Los Angeles        0.32          0.34       0.32
-## 14    Louisville        1.20          1.54       1.47
-## 15       Memphis        0.55          0.60       0.57
-## 16         Miami        0.31          0.28       0.28
-## 17      New York        1.28          0.60       0.93
-## 18      Oklahoma        0.24          0.25       0.23
-## 19       Phoenix        1.16          0.98       1.04
-## 20    Pittsburgh        0.36          0.37       0.35
-## 21      Portland        0.65          0.60       0.72
-## 22    Sacramento        1.36          1.81       1.68
-## 23 San Francisco        0.48          0.53       0.53
-## 24       Seattle        0.67          0.58       0.74
-## 25         Tampa        0.28          0.25       0.26
+##             city    MAPE_7d_lme  MAPE_7d_lmeWt     MAPE_7d_lm MAPE_7d_lmeLog
+## 1    Albuquerque           1.26           0.97           1.25           2.21
+## 2        Atlanta           0.48           0.50           0.48           0.23
+## 3      Baltimore           0.23           0.23           0.22           0.10
+## 4         Boston 40583179888.03 35157739089.96 39541465354.84           0.16
+## 5      Charlotte           0.27           0.28           0.28           0.17
+## 6        Chicago           0.40           0.41           0.40           0.16
+## 7      Cleveland           0.32           0.30           0.36           0.42
+## 8         Dallas           1.28           1.40           1.43           0.81
+## 9         Denver           0.36           0.31           0.38           0.18
+## 10       Detroit 32467218044.21 36788756430.90 37450956815.69           0.21
+## 11       Houston           1.62           1.73           1.62           1.54
+## 12  Indianapolis           0.20           0.22           0.22           0.33
+## 13   Los Angeles           0.32           0.34           0.32           0.15
+## 14    Louisville           1.20           1.54           1.47           0.45
+## 15       Memphis           0.55           0.60           0.57           0.18
+## 16         Miami           0.31           0.28           0.28           0.14
+## 17      New York           1.28           0.60           0.93           0.93
+## 18      Oklahoma           0.24           0.25           0.23           0.17
+## 19       Phoenix           1.16           0.98           1.04           1.99
+## 20    Pittsburgh           0.36           0.37           0.35           0.23
+## 21      Portland           0.65           0.60           0.72           0.21
+## 22    Sacramento           1.36           1.81           1.68           0.31
+## 23 San Francisco           0.48           0.53           0.53           0.28
+## 24       Seattle           0.67           0.58           0.74           0.25
+## 25         Tampa           0.28           0.25           0.26           0.13
+##    MAPE_7d_lmeLogWt MAPE_7d_lmLog
+## 1              2.32          3.52
+## 2              0.21          0.28
+## 3              0.09          0.20
+## 4              0.22          0.11
+## 5              0.15          0.21
+## 6              0.16          0.18
+## 7              0.40          0.14
+## 8              0.83          0.63
+## 9              0.19          0.16
+## 10             0.20         -0.01
+## 11             1.59          1.27
+## 12             0.35          0.13
+## 13             0.15          0.18
+## 14             0.46          0.40
+## 15             0.15          0.26
+## 16             0.17          0.23
+## 17             1.10          0.77
+## 18             0.15          0.23
+## 19             2.08          2.14
+## 20             0.23          0.24
+## 21             0.21          0.31
+## 22             0.33          0.25
+## 23             0.29          0.30
+## 24             0.26          0.33
+## 25             0.15          0.18
 ```
 
 
@@ -2333,32 +2981,58 @@ allMetrics %>% select(city, starts_with("MAE_7d")) %>%
 ```
 
 ```
-##             city MAE_7d_lme MAE_7d_lmeWt MAE_7d_lm
-## 1    Albuquerque       2.04         1.58      2.01
-## 2        Atlanta       5.13         5.59      5.32
-## 3      Baltimore       2.85         2.83      2.65
-## 4         Boston       2.23         1.98      2.21
-## 5      Charlotte       2.93         3.07      3.07
-## 6        Chicago       6.11         6.20      6.12
-## 7      Cleveland       1.87         1.74      2.03
-## 8         Dallas       4.63         4.86      4.97
-## 9         Denver       1.64         1.38      1.74
-## 10       Detroit       2.90         3.15      2.58
-## 11       Houston       3.18         3.55      3.16
-## 12  Indianapolis       1.68         1.78      1.81
-## 13   Los Angeles       2.56         2.85      2.58
-## 14    Louisville      19.65        20.34     19.80
-## 15       Memphis       4.81         5.42      5.00
-## 16         Miami       8.83         8.87      8.82
-## 17      New York       2.95         1.36      2.15
-## 18      Oklahoma       4.95         4.77      4.67
-## 19       Phoenix       4.37         4.84      4.44
-## 20    Pittsburgh       1.40         1.71      1.40
-## 21      Portland       2.20         2.07      2.50
-## 22    Sacramento       8.71        11.37     10.56
-## 23 San Francisco       1.78         1.69      1.85
-## 24       Seattle       2.22         1.86      2.49
-## 25         Tampa       3.04         2.94      3.01
+##             city MAE_7d_lme MAE_7d_lmeWt MAE_7d_lm MAE_7d_lmeLog
+## 1    Albuquerque       2.04         1.58      2.01          0.43
+## 2        Atlanta       5.13         5.59      5.32          0.50
+## 3      Baltimore       2.85         2.83      2.65          0.24
+## 4         Boston       2.23         1.98      2.21          4.10
+## 5      Charlotte       2.93         3.07      3.07          0.46
+## 6        Chicago       6.11         6.20      6.12          0.40
+## 7      Cleveland       1.87         1.74      2.03          0.79
+## 8         Dallas       4.63         4.86      4.97          0.59
+## 9         Denver       1.64         1.38      1.74          0.25
+## 10       Detroit       2.90         3.15      2.58          4.43
+## 11       Houston       3.18         3.55      3.16          0.43
+## 12  Indianapolis       1.68         1.78      1.81          0.80
+## 13   Los Angeles       2.56         2.85      2.58          0.27
+## 14    Louisville      19.65        20.34     19.80          1.38
+## 15       Memphis       4.81         5.42      5.00          0.41
+## 16         Miami       8.83         8.87      8.82          0.42
+## 17      New York       2.95         1.36      2.15          0.75
+## 18      Oklahoma       4.95         4.77      4.67          0.50
+## 19       Phoenix       4.37         4.84      4.44          0.84
+## 20    Pittsburgh       1.40         1.71      1.40          0.32
+## 21      Portland       2.20         2.07      2.50          0.25
+## 22    Sacramento       8.71        11.37     10.56          0.73
+## 23 San Francisco       1.78         1.69      1.85          0.37
+## 24       Seattle       2.22         1.86      2.49          0.28
+## 25         Tampa       3.04         2.94      3.01          0.30
+##    MAE_7d_lmeLogWt MAE_7d_lmLog
+## 1             0.44         0.65
+## 2             0.46         0.69
+## 3             0.23         0.51
+## 4             4.20         4.04
+## 5             0.40         0.56
+## 6             0.41         0.50
+## 7             0.76         0.24
+## 8             0.61         0.57
+## 9             0.27         0.24
+## 10            4.42         4.05
+## 11            0.42         0.69
+## 12            0.83         0.32
+## 13            0.27         0.42
+## 14            1.40         1.01
+## 15            0.32         0.63
+## 16            0.48         0.69
+## 17            0.89         0.62
+## 18            0.45         0.66
+## 19            0.82         0.81
+## 20            0.32         0.32
+## 21            0.26         0.37
+## 22            0.79         0.43
+## 23            0.37         0.43
+## 24            0.30         0.37
+## 25            0.33         0.44
 ```
 
 
@@ -2370,32 +3044,58 @@ allMetrics %>% select(city, starts_with("CP_7d")) %>%
 ```
 
 ```
-##             city CP_7d_lme CP_7d_lmeWt CP_7d_lm
-## 1    Albuquerque      1.00        0.86     1.00
-## 2        Atlanta      1.00        0.29     1.00
-## 3      Baltimore      1.00        0.43     1.00
-## 4         Boston      1.00        0.57     1.00
-## 5      Charlotte      1.00        0.57     1.00
-## 6        Chicago      0.86        0.14     0.86
-## 7      Cleveland      1.00        0.71     1.00
-## 8         Dallas      1.00        0.43     0.86
-## 9         Denver      1.00        0.86     1.00
-## 10       Detroit      1.00        0.43     1.00
-## 11       Houston      0.86        0.71     0.86
-## 12  Indianapolis      1.00        0.86     1.00
-## 13   Los Angeles      1.00        0.43     1.00
-## 14    Louisville      0.71        0.00     0.57
-## 15       Memphis      0.86        0.29     0.86
-## 16         Miami      0.86        0.43     0.86
-## 17      New York      1.00        0.86     1.00
-## 18      Oklahoma      0.86        0.57     0.86
-## 19       Phoenix      0.86        0.29     0.86
-## 20    Pittsburgh      1.00        0.86     1.00
-## 21      Portland      1.00        0.71     1.00
-## 22    Sacramento      0.71        0.00     0.43
-## 23 San Francisco      1.00        0.86     1.00
-## 24       Seattle      1.00        0.86     1.00
-## 25         Tampa      1.00        0.57     1.00
+##             city CP_7d_lme CP_7d_lmeWt CP_7d_lm CP_7d_lmeLog CP_7d_lmeLogWt
+## 1    Albuquerque      1.00        0.86     1.00         1.00           1.00
+## 2        Atlanta      1.00        0.29     1.00         1.00           1.00
+## 3      Baltimore      1.00        0.43     1.00         1.00           1.00
+## 4         Boston      1.00        0.57     1.00         0.86           0.86
+## 5      Charlotte      1.00        0.57     1.00         1.00           1.00
+## 6        Chicago      0.86        0.14     0.86         1.00           1.00
+## 7      Cleveland      1.00        0.71     1.00         1.00           1.00
+## 8         Dallas      1.00        0.43     0.86         1.00           1.00
+## 9         Denver      1.00        0.86     1.00         1.00           1.00
+## 10       Detroit      1.00        0.43     1.00         0.86           0.86
+## 11       Houston      0.86        0.71     0.86         1.00           1.00
+## 12  Indianapolis      1.00        0.86     1.00         1.00           1.00
+## 13   Los Angeles      1.00        0.43     1.00         1.00           1.00
+## 14    Louisville      0.71        0.00     0.57         0.71           0.71
+## 15       Memphis      0.86        0.29     0.86         1.00           1.00
+## 16         Miami      0.86        0.43     0.86         1.00           1.00
+## 17      New York      1.00        0.86     1.00         1.00           1.00
+## 18      Oklahoma      0.86        0.57     0.86         1.00           1.00
+## 19       Phoenix      0.86        0.29     0.86         1.00           1.00
+## 20    Pittsburgh      1.00        0.86     1.00         1.00           1.00
+## 21      Portland      1.00        0.71     1.00         1.00           1.00
+## 22    Sacramento      0.71        0.00     0.43         1.00           1.00
+## 23 San Francisco      1.00        0.86     1.00         1.00           1.00
+## 24       Seattle      1.00        0.86     1.00         1.00           1.00
+## 25         Tampa      1.00        0.57     1.00         1.00           1.00
+##    CP_7d_lmLog
+## 1         1.00
+## 2         1.00
+## 3         1.00
+## 4         0.86
+## 5         1.00
+## 6         1.00
+## 7         1.00
+## 8         1.00
+## 9         1.00
+## 10        0.86
+## 11        1.00
+## 12        1.00
+## 13        1.00
+## 14        1.00
+## 15        1.00
+## 16        1.00
+## 17        1.00
+## 18        1.00
+## 19        1.00
+## 20        1.00
+## 21        1.00
+## 22        1.00
+## 23        1.00
+## 24        1.00
+## 25        1.00
 ```
 
 
@@ -2405,36 +3105,63 @@ allMetrics %>% select(city, starts_with("CP_7d")) %>%
 allMetrics %>% select(city, starts_with("MAPE_14d")) %>%
   arrange(as.character(city)) %>%
   as.data.frame() %>%
+  format(scientific = F) %>%
   print()
 ```
 
 ```
-##             city MAPE_14d_lme MAPE_14d_lmeWt MAPE_14d_lm
-## 1    Albuquerque         1.61           1.22        1.65
-## 2        Atlanta         0.34           0.35        0.34
-## 3      Baltimore         0.27           0.26        0.28
-## 4         Boston          Inf            Inf         Inf
-## 5      Charlotte         0.29           0.29        0.28
-## 6        Chicago         0.31           0.33        0.32
-## 7      Cleveland         0.60           0.60        0.73
-## 8         Dallas         0.85           0.95        0.96
-## 9         Denver         0.44           0.39        0.51
-## 10       Detroit          Inf            Inf         Inf
-## 11       Houston         0.93           0.99        0.93
-## 12  Indianapolis         0.38           0.46        0.45
-## 13   Los Angeles         0.40           0.39        0.38
-## 14    Louisville         1.34           1.70        1.62
-## 15       Memphis         0.67           0.78        0.70
-## 16         Miami         0.41           0.23        0.22
-## 17      New York         2.00           1.03        1.45
-## 18      Oklahoma         0.31           0.27        0.28
-## 19       Phoenix         1.63           1.20        1.37
-## 20    Pittsburgh          Inf            Inf         Inf
-## 21      Portland         0.74           0.70        0.87
-## 22    Sacramento         1.41           2.21        1.96
-## 23 San Francisco         0.37           0.48        0.49
-## 24       Seattle         0.73           0.67        0.86
-## 25         Tampa         0.34           0.25        0.27
+##             city   MAPE_14d_lme MAPE_14d_lmeWt    MAPE_14d_lm MAPE_14d_lmeLog
+## 1    Albuquerque           1.61           1.22           1.65            1.60
+## 2        Atlanta           0.34           0.35           0.34            0.16
+## 3      Baltimore           0.27           0.26           0.28            0.12
+## 4         Boston 20291589944.40 17578869545.30 19770732677.81            0.33
+## 5      Charlotte           0.29           0.29           0.28            0.18
+## 6        Chicago           0.31           0.33           0.32            0.12
+## 7      Cleveland           0.60           0.60           0.73            0.37
+## 8         Dallas           0.85           0.95           0.96            0.50
+## 9         Denver           0.44           0.39           0.51            0.19
+## 10       Detroit 33898725670.98 40039955662.76 41428902920.84            0.24
+## 11       Houston           0.93           0.99           0.93            0.83
+## 12  Indianapolis           0.38           0.46           0.45            0.36
+## 13   Los Angeles           0.40           0.39           0.38            0.20
+## 14    Louisville           1.34           1.70           1.62            0.88
+## 15       Memphis           0.67           0.78           0.70            0.21
+## 16         Miami           0.41           0.23           0.22            0.18
+## 17      New York           2.00           1.03           1.45            1.26
+## 18      Oklahoma           0.31           0.27           0.28            0.23
+## 19       Phoenix           1.63           1.20           1.37            0.67
+## 20    Pittsburgh 10863087607.25 10806108981.44 11444885320.41            0.15
+## 21      Portland           0.74           0.70           0.87            0.23
+## 22    Sacramento           1.41           2.21           1.96            0.40
+## 23 San Francisco           0.37           0.48           0.49            0.18
+## 24       Seattle           0.73           0.67           0.86            0.21
+## 25         Tampa           0.34           0.25           0.27            0.16
+##    MAPE_14d_lmeLogWt MAPE_14d_lmLog
+## 1               1.68           2.77
+## 2               0.15           0.25
+## 3               0.12           0.18
+## 4               0.40           0.22
+## 5               0.15           0.22
+## 6               0.13           0.19
+## 7               0.34           0.23
+## 8               0.51           0.43
+## 9               0.20           0.18
+## 10              0.23          -0.01
+## 11              0.84           0.80
+## 12              0.36           0.18
+## 13              0.22           0.17
+## 14              0.90           1.06
+## 15              0.21           0.29
+## 16              0.22           0.22
+## 17              1.44           1.00
+## 18              0.20           0.30
+## 19              0.70           0.71
+## 20              0.16           0.16
+## 21              0.23           0.33
+## 22              0.41           0.34
+## 23              0.18           0.19
+## 24              0.22           0.31
+## 25              0.20           0.16
 ```
 
 
@@ -2446,32 +3173,58 @@ allMetrics %>% select(city, starts_with("MAE_14d")) %>%
 ```
 
 ```
-##             city MAE_14d_lme MAE_14d_lmeWt MAE_14d_lm
-## 1    Albuquerque        3.06          2.32       3.18
-## 2        Atlanta        3.67          4.05       3.80
-## 3      Baltimore        2.54          2.44       2.53
-## 4         Boston        2.48          2.08       2.48
-## 5      Charlotte        2.93          3.01       2.98
-## 6        Chicago        4.09          4.29       4.14
-## 7      Cleveland        2.56          2.55       3.12
-## 8         Dallas        4.17          4.36       4.41
-## 9         Denver        1.90          1.65       2.23
-## 10       Detroit        3.30          3.45       2.96
-## 11       Houston        3.97          4.07       3.98
-## 12  Indianapolis        3.72          4.06       4.08
-## 13   Los Angeles        2.65          2.69       2.56
-## 14    Louisville       13.02         12.99      12.58
-## 15       Memphis        5.22          5.94       5.43
-## 16         Miami        6.85          5.24       5.12
-## 17      New York        4.55          2.31       3.29
-## 18      Oklahoma        6.27          5.48       5.72
-## 19       Phoenix        3.88          3.53       3.57
-## 20    Pittsburgh        2.16          2.11       2.23
-## 21      Portland        2.53          2.41       3.06
-## 22    Sacramento        7.42         11.11       9.84
-## 23 San Francisco        1.81          2.31       2.49
-## 24       Seattle        2.67          2.40       3.18
-## 25         Tampa        3.04          2.47       2.53
+##             city MAE_14d_lme MAE_14d_lmeWt MAE_14d_lm MAE_14d_lmeLog
+## 1    Albuquerque        3.06          2.32       3.18           0.38
+## 2        Atlanta        3.67          4.05       3.80           0.36
+## 3      Baltimore        2.54          2.44       2.53           0.26
+## 4         Boston        2.48          2.08       2.48           2.35
+## 5      Charlotte        2.93          3.01       2.98           0.47
+## 6        Chicago        4.09          4.29       4.14           0.30
+## 7      Cleveland        2.56          2.55       3.12           0.65
+## 8         Dallas        4.17          4.36       4.41           0.48
+## 9         Denver        1.90          1.65       2.23           0.27
+## 10       Detroit        3.30          3.45       2.96           4.52
+## 11       Houston        3.97          4.07       3.98           0.39
+## 12  Indianapolis        3.72          4.06       4.08           0.88
+## 13   Los Angeles        2.65          2.69       2.56           0.36
+## 14    Louisville       13.02         12.99      12.58           1.47
+## 15       Memphis        5.22          5.94       5.43           0.46
+## 16         Miami        6.85          5.24       5.12           0.45
+## 17      New York        4.55          2.31       3.29           0.99
+## 18      Oklahoma        6.27          5.48       5.72           0.68
+## 19       Phoenix        3.88          3.53       3.57           0.72
+## 20    Pittsburgh        2.16          2.11       2.23           2.13
+## 21      Portland        2.53          2.41       3.06           0.27
+## 22    Sacramento        7.42         11.11       9.84           0.83
+## 23 San Francisco        1.81          2.31       2.49           0.26
+## 24       Seattle        2.67          2.40       3.18           0.25
+## 25         Tampa        3.04          2.47       2.53           0.34
+##    MAE_14d_lmeLogWt MAE_14d_lmLog
+## 1              0.39          0.79
+## 2              0.33          0.61
+## 3              0.26          0.43
+## 4              2.46          2.22
+## 5              0.37          0.57
+## 6              0.31          0.49
+## 7              0.61          0.33
+## 8              0.49          0.56
+## 9              0.28          0.26
+## 10             4.50          4.08
+## 11             0.36          0.83
+## 12             0.88          0.45
+## 13             0.39          0.36
+## 14             1.46          1.02
+## 15             0.39          0.71
+## 16             0.54          0.61
+## 17             1.14          0.78
+## 18             0.60          0.88
+## 19             0.71          0.70
+## 20             2.14          2.14
+## 21             0.27          0.36
+## 22             0.85          0.46
+## 23             0.25          0.31
+## 24             0.26          0.37
+## 25             0.42          0.38
 ```
 
 
@@ -2483,30 +3236,60 @@ allMetrics %>% select(city, starts_with("CP_14d")) %>%
 ```
 
 ```
-##             city CP_14d_lme CP_14d_lmeWt CP_14d_lm
-## 1    Albuquerque       1.00         0.64      1.00
-## 2        Atlanta       1.00         0.43      1.00
-## 3      Baltimore       1.00         0.57      1.00
-## 4         Boston       1.00         0.50      1.00
-## 5      Charlotte       1.00         0.57      1.00
-## 6        Chicago       0.93         0.43      0.93
-## 7      Cleveland       1.00         0.50      1.00
-## 8         Dallas       1.00         0.36      0.93
-## 9         Denver       1.00         0.79      1.00
-## 10       Detroit       1.00         0.43      1.00
-## 11       Houston       0.79         0.57      0.79
-## 12  Indianapolis       0.93         0.57      0.93
-## 13   Los Angeles       1.00         0.50      1.00
-## 14    Louisville       0.71         0.14      0.71
-## 15       Memphis       0.86         0.21      0.86
-## 16         Miami       0.93         0.64      0.93
-## 17      New York       1.00         0.43      1.00
-## 18      Oklahoma       0.79         0.36      0.86
-## 19       Phoenix       0.93         0.50      0.93
-## 20    Pittsburgh       1.00         0.79      1.00
-## 21      Portland       1.00         0.64      1.00
-## 22    Sacramento       0.86         0.07      0.43
-## 23 San Francisco       1.00         0.64      1.00
-## 24       Seattle       1.00         0.57      1.00
-## 25         Tampa       1.00         0.64      1.00
+##             city CP_14d_lme CP_14d_lmeWt CP_14d_lm CP_14d_lmeLog
+## 1    Albuquerque       1.00         0.64      1.00          1.00
+## 2        Atlanta       1.00         0.43      1.00          1.00
+## 3      Baltimore       1.00         0.57      1.00          1.00
+## 4         Boston       1.00         0.50      1.00          0.93
+## 5      Charlotte       1.00         0.57      1.00          1.00
+## 6        Chicago       0.93         0.43      0.93          1.00
+## 7      Cleveland       1.00         0.50      1.00          1.00
+## 8         Dallas       1.00         0.36      0.93          1.00
+## 9         Denver       1.00         0.79      1.00          1.00
+## 10       Detroit       1.00         0.43      1.00          0.86
+## 11       Houston       0.79         0.57      0.79          1.00
+## 12  Indianapolis       0.93         0.57      0.93          1.00
+## 13   Los Angeles       1.00         0.50      1.00          1.00
+## 14    Louisville       0.71         0.14      0.71          0.86
+## 15       Memphis       0.86         0.21      0.86          1.00
+## 16         Miami       0.93         0.64      0.93          1.00
+## 17      New York       1.00         0.43      1.00          1.00
+## 18      Oklahoma       0.79         0.36      0.86          1.00
+## 19       Phoenix       0.93         0.50      0.93          1.00
+## 20    Pittsburgh       1.00         0.79      1.00          0.93
+## 21      Portland       1.00         0.64      1.00          1.00
+## 22    Sacramento       0.86         0.07      0.43          1.00
+## 23 San Francisco       1.00         0.64      1.00          1.00
+## 24       Seattle       1.00         0.57      1.00          1.00
+## 25         Tampa       1.00         0.64      1.00          1.00
+##    CP_14d_lmeLogWt CP_14d_lmLog
+## 1             1.00         1.00
+## 2             1.00         1.00
+## 3             1.00         1.00
+## 4             0.93         0.93
+## 5             1.00         1.00
+## 6             1.00         1.00
+## 7             1.00         1.00
+## 8             1.00         1.00
+## 9             1.00         1.00
+## 10            0.86         0.86
+## 11            1.00         1.00
+## 12            1.00         1.00
+## 13            1.00         1.00
+## 14            0.86         1.00
+## 15            1.00         1.00
+## 16            1.00         1.00
+## 17            1.00         1.00
+## 18            1.00         1.00
+## 19            1.00         1.00
+## 20            0.93         0.93
+## 21            1.00         1.00
+## 22            1.00         1.00
+## 23            1.00         1.00
+## 24            1.00         1.00
+## 25            1.00         1.00
 ```
+
+
+
+
