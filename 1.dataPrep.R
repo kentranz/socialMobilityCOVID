@@ -175,7 +175,7 @@ data <- cityCovid %>%
   
   
   #### ADHOC CORRECTION FOR OVER REPORTING -> NEGATIVE/ZERO NEW CASES
-  mutate(newCases = case_when(newCases <= 0 ~ 0.000000001
+  mutate(newCases = case_when(newCases <= 0 ~ 0.5 #0.000000001
                  , TRUE ~ newCases)
       ) %>%
 
@@ -184,9 +184,11 @@ data <- cityCovid %>%
          , casesTminus2 = lag(casesTminus1)) %>%
   ungroup() %>%
   
-  replace_na(list(newCases = 0.000000001
-                  , casesTminus1 = 0.000000001
-                  , casesTminus2 = 0.000000001)) %>%
+  replace_na(list(newCases = 0.5 #0.000000001
+                  , casesTminus1 = 0.5# 0.000000001
+                  , casesTminus2 = 0.5# 0.000000001
+                  )
+             ) %>%
   
  
   
