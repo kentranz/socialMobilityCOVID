@@ -14,8 +14,10 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library(ggplot2)
 library(tidyverse)
+library(magrittr)
 library(nlme)
 library(RCurl)
+
 
 rm(list = ls())
 ```
@@ -178,9 +180,7 @@ alldata$casesTminus2.rate <-
   alldata$casesTminus2 * 100000 / alldata$Population
 ```
 
-<br />
 
----
 
 # Start longitudinal work
 
@@ -202,7 +202,6 @@ alldata.groupedR <- groupedData(case.rate ~ day | city, outer = ~ city.ind,
                       labels = list(x = 'time (in days, since March 1 2020)',
                                     y = 'daily case rate per 100000'),
                                     data = alldata)
-
 # look at first few record of rate data
 head(alldata.groupedR)  # not printed in this R chunk
 ```
@@ -213,567 +212,138 @@ head(alldata.groupedR)  # not printed in this R chunk
 # plot city trajectories of (raw) daily cases
  plot(alldata.grouped, 
      main='city time-series of daily new case counts')
-
 # plot city trajectories of daily case rates per 100000
 plot(alldata.groupedR, 
      main='city time-series of daily case rates per 100000')
 ```
 
 
-## Data Partition
 
-- We used start date as 2020-03-16, because that was the first date that allowed for at least 2 lagged observerations in all cities.
-- Train set used data until 2020-11-30
-- Test sets: 
-  - test7: first 7 days in December
-  - test14: first 14 days in December
-  
+# Global start date
+```{r}
+startDate <- as.Date('2020-03-22')
+```
 
-``` {r trainTest}
 
-cutOff <- as.Date("2020-11-30")
+# Mar-Aug
+
+## Data partition
+```{r}
+cutOff <- as.Date("2020-08-31")
+
+testRange <- 14
+
+```
+
+## LME
+```{r}
+
+modelName = 'lmeAug_' 
 
 train <- alldata.groupedR %>% 
-  filter(day031620 >= 0 & as.Date(date) <= cutOff)
+  filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff))
 
+model <- lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend,
+    random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city,
+    data = train
+    )
+summary(model)
 
-test7 <- alldata.groupedR %>% 
-  filter(day031620 >= 0 & as.Date(date) > cutOff & as.Date(date) <= (cutOff + 7)) %>%
-  select(city, day031620, date, weekend, case.rate, casesTminus1.rate, casesTminus2.rate, walkingMinus7, walkingMinus14) %>%
-  
-  # retained lag case rates for first 2 days only, zero out the rest
+# test to hold all date data points up to testRange
+test <- alldata.groupedR %>% 
+filter(as.Date(date) >= startDate 
+       & as.Date(date) > cutOff
+       & as.Date(date) <= (cutOff + testRange)
+       ) %>%
+  select(city, day031620, date, weekend, case.rate, casesTminus1.rate, casesTminus2.rate) %>%
   mutate(
-    casesTminus1.rate = case_when(as.Date(date) == (cutOff + 1) ~ casesTminus1.rate
-                                    , TRUE ~ 0
-                                  ) 
-    , casesTminus2.rate = case_when(as.Date(date) == (cutOff + 1) | as.Date(date) == (cutOff + 2) ~ casesTminus2.rate
-                                    , TRUE ~ 0
-                                  ) 
-  )
-  
-  
-test14 <- alldata.groupedR %>% 
-  filter(day031620 >= 0 & as.Date(date) > cutOff) %>%
-  select(city, day031620, date, weekend, case.rate, casesTminus1.rate, casesTminus2.rate, walkingMinus7, walkingMinus14) %>%
-  
-  # retained lag case rates for first 2 days only, zero out the rest
-  mutate(
-    casesTminus1.rate = case_when(as.Date(date) == (cutOff + 1) ~ casesTminus1.rate
-                                    , TRUE ~ 0
-                                  ) 
-    , casesTminus2.rate = case_when(as.Date(date) == (cutOff + 1) | as.Date(date) == (cutOff + 2) ~ casesTminus2.rate
-                                    , TRUE ~ 0
-                                  ) 
-  )
+    casesTminus1.rate = case_when( mod(as.numeric(as.Date(date) - cutOff), 7) == 1 ~ casesTminus1.rate
+         , TRUE ~ as.numeric(NA))
+    , casesTminus2.rate = 
+           case_when( mod(as.numeric(as.Date(date) - cutOff), 7) %in% c(1,2) ~ casesTminus2.rate
+         , TRUE ~ as.numeric(NA))
+         )
+         
+         
 
 
-nrow(train)
-nrow(test7)
-nrow(test14)
-```
-  
-
-
-
-
-
-## Automate extracting 95% CI for prediction band, metrics, and plotting
-
-Predict one day at a time, feedforward the prediction as lag case.rate. 
-
-```{r forecastFunc}
-
-forecastLME <- function(model, test) # provide model obj and test set
+# Predict one new observation at a time
+# For each new 7-day period, refit the model with actual observed Y
+for (i in 1:testRange)
 {
-  for (i in 1:nrow(test))
-  {
-    
-    pred <- predict(model, newdata = test[i,])
-    test[i, 'pred'] <- pred
-    
-    # if second day or later, use pred case.rate as lag-1
-    if ( i <= (nrow(test)-1) & as.Date(test[i+1,'date']) > cutOff+1)
-    {
-      test[i+1, 'casesTminus1.rate'] <- pred
-    }
-    
-    # if third day or later, use pred case.rate as lag-2
-    if (i <= (nrow(test)-2) & as.Date(test[i+2,'date']) > (cutOff + 2))
-    {
-      test[i+2, 'casesTminus2.rate'] <- pred
-    }
   
+  if(i >1 & i %% 7 == 1) # update only when predicting on 8th, 15th, etc. days
+  {
+    train <- alldata.groupedR %>% 
+      filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff - 1 + i))
+
+    model <- update(model, data = train)
   }
   
-  return(test)
-}
-
-#forecast(model = case.rate.lme20201031
-#         , test = test14
-#         )
-
-```
-
-
-Extract 95% CI for prediction band. References from the web:
-
-- https://stackoverflow.com/questions/14358811/extract-prediction-band-from-lme-fit and 
-- http://bbolker.github.io/mixedmodels-misc/glmmFAQ.html#predictions-andor-confidence-or-prediction-intervals-on-predictions
-
-SE: This approach takes into account the uncertainty of the random effect in the prediction. 
-
-SE2: This takes into account both random effect uncertainty and within-group error
-
-
-
-``` {r resultsFunc}
-#model <- case.rate.lme20201031
-
-metricsFuncLME <- function(model)
-{
-  results7 <- forecastLME(model, test = test7)
+  #print(i)
+  #print(model)
   
-  # create design mateix
+  # test to check correct training window
+  # print(i)
+  # print(max(as.Date(train$date)))
+  
+  
+  tempTest <- test %>% 
+    filter(as.Date(date) == cutOff + i)
+  
+  tempTest$pred <- predict(model, newdata = tempTest)
+
+  
+  # test to check for correct test window
+  # print(max(as.Date(tempTest$date)))
+  
+  # create design matrix
   # [-2] drops response from formula
-  Designmat <- model.matrix(formula(model)[-2], results7)
+  Designmat <- model.matrix(formula(model)[-2], tempTest)
   
   # compute XVX′ to get the variance-covariance matrix of the predictions
   # extract the diagonal of this matrix to get variances of predictions
   predvar <- diag(Designmat %*% vcov(model) %*% t(Designmat)) 
-  results7$SE <- sqrt(predvar) 
-  results7$SE2 <- sqrt(predvar + model$sigma^2) # sigma is the estimated within-group error standard deviation
+  #results7$SE <- sqrt(predvar) 
+  tempTest$SE <- sqrt(predvar + model$sigma^2) # sigma is the estimated within-group error standard deviation
+  tempTest$lowerCI <- tempTest$pred - 1.96*tempTest$SE
+  tempTest$upperCI <- tempTest$pred + 1.96*tempTest$SE
   
+  test %<>%
+    left_join(tempTest %>% select(city, date, pred, lowerCI, upperCI)
+              , by = c("date" = "date", "city" = "city"))
   
-  results14 <- forecastLME(model, test = test14)
+  # clean up extra columns after join 
+  if(i > 1)
+  {
+    test %<>% 
+      mutate(pred = coalesce(pred.x, pred.y)
+             , lowerCI = coalesce(lowerCI.x, lowerCI.y)
+             , upperCI = coalesce(upperCI.x, upperCI.y)
+             ) %>%
+      select(-pred.x, -pred.y
+             , -lowerCI.x, -lowerCI.y
+             , -upperCI.x, -upperCI.y)
+  }
   
-  Designmat <- model.matrix(formula(model)[-2], results14)
-  predvar <- diag(Designmat %*% vcov(model) %*% t(Designmat)) 
-  results14$SE <- sqrt(predvar) 
-  results14$SE2 <- sqrt(predvar + model$sigma^2)
-
-
-  # CALCULATE MAE, MAPE, CP
-  perform7 <- results7 %>% 
-  group_by(city) %>% 
-  summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
-            , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
-            , CP = round(sum(case.rate >= (pred - 1.96*SE2) & case.rate <= (pred + 1.96*SE2) ) / n() , 2)
-            ) #%>%
-  #as.data.frame() %>%
-  #print()
-
-
-  perform14 <- results14 %>% 
-    group_by(city) %>% 
-    summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
-              , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
-              , CP = round(sum(case.rate >= (pred - 1.96*SE2) & case.rate <= (pred + 1.96*SE2) ) / n() , 2)
-              ) #%>%
-    #as.data.frame() %>%
-    #print()
-  
-  metrics <- perform7 %>%
-    left_join(perform14 
-              , by = "city"
-              , suffix = c("_7d", "_14d")
-              ) #%>%
-    #as.data.frame() %>%
-    #print()
-  
-  return(list(performMetrics = metrics
-              , results7 = results7
-              , results14 = results14))
+  # bring forward predictions
+  test %<>% 
+    mutate(casesTminus1.rate =  case_when(is.na(casesTminus1.rate) ~ lag(as.numeric(pred)), TRUE ~ casesTminus1.rate)
+           , casesTminus2.rate =  case_when(is.na(casesTminus2.rate) ~ lag(as.numeric(pred), 2), TRUE ~ casesTminus2.rate)
+           )
 }
 
 
 
-
-plotFuncLME <- function(model
-                     , forecastLength # only 7 or 14 as numeric arg
-                     )
-{
-  
-  if(forecastLength == 7)
-  { results = output$results7
-    
-    perform <- output$performMetrics %>% 
-      select(city, contains("7d"))
-  }
-  
-  if(forecastLength == 14)
-  { results = output$results14
-    
-    perform <- output$performMetrics %>% 
-      select(city, contains("14d")) 
-  }
-  
-  perform <- setNames(perform, gsub("_.*", "", names(perform)))
-  
-  perform <- perform %>%
-    mutate(MAPE = paste0("MAPE = ", MAPE)
-                      , MAE = paste0("MAE = ", MAE)
-                      , CP = paste0("CP = ", CP)
-                      )
-  
-  
-  Designmat <- model.matrix(formula(model)[-2], train)
-  predvar <- diag(Designmat %*% vcov(model) %*% t(Designmat)) 
-  
-  plotDF <- train %>% 
-    select(city, day031620, case.rate) %>%
-    mutate(city = as.character(city)
-           , SE2 = sqrt(predvar + model$sigma^2)
-           , upperCI.fitted = case.rate + 1.96*SE2
-           , lowerCI.fitted = case.rate - 1.96*SE2
-           , fitted = predict(model, data = train)
-           ) %>%
-    reshape::melt(id = c('city', 'day031620')) %>%
-    
-    # bring into forecasted case rates
-    rbind(results %>% 
-            select(city, day031620, case.rate, pred, SE2) %>% 
-            #rename(case.rate = pred) %>% 
-            mutate(upperCI.pred = pred + 1.96*SE2
-                   , lowerCI.pred = pred - 1.96*SE2
-                   ) %>%
-            reshape2::melt(id = c('city', 'day031620'))
-          ) 
-      
-  
-  p <- ggplot(plotDF 
-              , aes(day031620, value, group = variable, colour = variable)) +
-    
-    geom_line(data = filter(plotDF, variable == 'case.rate'), linetype = "solid", color = 'black', alpha = 0.6) + 
-    geom_line(data = filter(plotDF, variable == 'fitted'), linetype = "solid", color = 'red') +
-    geom_line(data = filter(plotDF, variable == 'pred'), linetype = "solid", color = 'blue') +
-    
-    # uncertainty band for fitted model
-    geom_ribbon(data = filter(plotDF, variable == 'lowerCI.fitted')
-      , aes(ymin = filter(plotDF, variable == 'lowerCI.fitted')$value
-                    , ymax =  filter(plotDF, variable == 'upperCI.fitted')$value
-                    )
-                , alpha = 0.3
-                , color = NA
-                , fill = "red") +
-    
-    # prediction band for forecast
-    geom_ribbon(data = filter(plotDF, variable == 'lowerCI.pred')
-      , aes(ymin = filter(plotDF, variable == 'lowerCI.pred')$value
-                    , ymax =  filter(plotDF, variable == 'upperCI.pred')$value
-                    )
-                , alpha = 0.3
-                , color = NA
-                , fill = "blue") +
-    
-    facet_wrap(. ~ city, ncol = 2) +
-    ggtitle(paste0('Forecast ', forecastLength, ' Days')) +
-    ylab('Case Rate per 100,000 People') +
-    xlab('Days since March 16, 2020') +
-    #ylim(-15,100) +
-    
-    # add performance metrics
-    geom_label(data = perform 
-               , aes(label = MAPE), 
-              x = 0, y = max(abs(filter(plotDF, variable == 'case.rate')$value)), hjust="inward", vjust="inward",
-              inherit.aes = FALSE) +
-    geom_label(data = perform 
-               , aes(label = MAE), 
-              x = 0, y = max(abs(filter(plotDF, variable == 'case.rate')$value))*4/5, hjust="inward", vjust="inward",
-              inherit.aes = FALSE) +
-    geom_label(data = perform 
-                , aes(label = CP), 
-               x = 0, y = max(abs(filter(plotDF, variable == 'case.rate')$value))*3/5, hjust="inward", vjust="inward",
-               inherit.aes = FALSE) +
-     
-    theme_classic() +
-    theme(legend.position = 'none') 
-    
-  p
-}
-
-```
-
-
-## Initial modeling, using `lme` function
-- Aside from dealing with heteroskedasticity, the following was the best model from earlier runs, through June 30th end data at the time, starting with March 16th data.  This is a linear mixed effects model, with case rate as the response, the fixed effects being the first two lagged case rate variables and the weekend indicator variable, and the random effects being the time-varying lagged case rate variables; there is no random intercept, shown not to be needed due to the relatively low levels across all cities near March 16th. 
-
-``` {r modelSpec}
-
-case.rate.lme20201031 <- 
-  lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend,
-      random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city,
-      data = train
-      )
-
-summary(case.rate.lme20201031)
-
-```
-
-
-
-## Experiment with bootstrap prediction interval
-
-Easy Method by Bolker + sigma
-```{r}
-
-test <- test14
-model <- case.rate.lme20201031
-
-for (i in 1:nrow(test))
-{
-  
-  pred <- predict(model, newdata = test[i,])
-  test[i, 'pred'] <- pred
-  
-  # if second day or later, use pred case.rate as lag-1
-  if ( i <= (nrow(test)-1) & as.Date(test[i+1,'date']) > cutOff+1)
-  {
-    test[i+1, 'casesTminus1.rate'] <- pred
-  }
-  
-  # if third day or later, use pred case.rate as lag-2
-  if (i <= (nrow(test)-2) & as.Date(test[i+2,'date']) > (cutOff + 2))
-  {
-    test[i+2, 'casesTminus2.rate'] <- pred
-  }
-  
-}
-
-Designmat <- model.matrix(formula(model)[-2], test)
-predvar <- diag(Designmat %*% vcov(model) %*% t(Designmat)) 
-test$SE <- sqrt(predvar + model$sigma^2)
-test <- test %>% 
-  mutate(lowerCI = pred - SE
-         , upperCI = pred + SE
-         )
-
-test %>% select(city, date, weekend, case.rate, pred, lowerCI, upperCI)
-
-```
-
-Using lmeresampler package. The problem currently is lower CI < prediction. Not sure why?
-
-``` {r}
-
-
-## Define custom function to resample both fixed and random effects
-mySumm <- function(.) { 
-  c(beta = fixef(.)
-    , random = ranef(.)
-    #, sigma = as.numeric(.$sigma) # the estimated within-group error standard deviation.
-    #, sig01 = as.numeric(VarCorr(.)[1,2]) #among city stdev
-    )
-}
-
-set.seed(107)
-lme_par_boot <- lmeresampler::bootstrap(case.rate.lme20201031
-                           , fn = mySumm
-                           #, fn = fixef
-                           , type = "parametric"
-                           , B = 200)
-
-
-#t(apply(lme_par_boot$t , 2, quantile, c(0.025,0.975), na.rm=TRUE))
-
-## Y_hat based on bootstrap fixed effects betas
-## Has to be a for-loop because predictions are sequential, so can't use apply
-
-test <- test14
-model <- case.rate.lme20201031
-bootSamp <- lme_par_boot$t %>% as.data.frame() # 200 bootstrap samples for coefficients
-
-
-for (i in 1:nrow(test))
-{
-  
-  pred <- lme_par_boot$t0$`beta.(Intercept)` + # access value within nested list
-    lme_par_boot$t0$beta.casesTminus1.rate * test[i, 'casesTminus1.rate'] + 
-    lme_par_boot$t0$beta.casesTminus2.rate * test[i, 'casesTminus2.rate'] +
-    lme_par_boot$t0$beta.weekend * test[i, 'weekend'] +
-    
-    ## random effects
-    ## extract the coef for the city
-    (lme_par_boot$t0$random.casesTminus1.rate[as.integer(test[i, 'city'])] * test[i, 'casesTminus1.rate'] + 
-       lme_par_boot$t0$random.casesTminus2.rate[as.integer(test[i, 'city'])] * test[i, 'casesTminus2.rate'])
-  
-  
-  test[i, 'pred'] <- pred
-  
-  # if second day or later, use pred case.rate as lag-1
-  if ( i <= (nrow(test)-1) & as.Date(test[i+1,'date']) > cutOff+1)
-  {
-    test[i+1, 'casesTminus1.rate'] <- pred
-  }
-  
-  # if third day or later, use pred case.rate as lag-2
-  if (i <= (nrow(test)-2) & as.Date(test[i+2,'date']) > (cutOff + 2))
-  {
-    test[i+2, 'casesTminus2.rate'] <- pred
-  }
-  
-  ## Calculate yhat for each bootstrap iteration
-  for (j in 1:nrow(bootSamp))
-  {
-    bootSamp[j, 'yHat'] <- 
-      bootSamp[j,'beta.(Intercept)'][[1]] + # access coef value within nested list
-      bootSamp[j,'beta.casesTminus1.rate'][[1]] * test[i, 'casesTminus1.rate'] + 
-      bootSamp[j,'beta.casesTminus2.rate'][[1]] * test[i, 'casesTminus2.rate'] +
-      bootSamp[j,'beta.weekend'][[1]] * test[i, 'weekend'] +
-      
-      ## random effects
-      ## extract the coef for the city
-      (bootSamp[j,'random.casesTminus1.rate'][[1]][as.integer(test[i, 'city'])] * test[i, 'casesTminus1.rate'] + 
-         bootSamp[j,'random.casesTminus2.rate'][[1]][as.integer(test[i, 'city'])] * test[i, 'casesTminus2.rate']
-       )
-  }
-  
-  ## Confidence interval of yhat
-  test[i, 'lowerCI'] <- quantile(bootSamp$yHat, c(0.025))
-  test[i, 'upperCI'] <- quantile(bootSamp$yHat, c(0.975))
-}
-
-test %>% select(city, date, weekend, case.rate, pred, lowerCI, upperCI)
-```
-
-
-
-``` {r fig.width=10, fig.height=30}
-
-output <- metricsFuncLME(model = case.rate.lme20201031)
-
-allMetrics <- output$performMetrics %>%
-  rename_at(vars(-city), function(x) {paste0(x, "_lme")})
-
-plotFuncLME(model = case.rate.lme20201031
-         , forecastLength = 7)
-```
-``` {r fig.width=10, fig.height=30}
-
-plotFuncLME(model = case.rate.lme20201031
-         , forecastLength = 14)
-```
-
-## Weighted Residual LME
-
-Use weights to account for within-group heteroskedasticity
-
-```{r reweightedResidual}
-case.rate.lme20201031.reweighed <- 
-  lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend
-      , random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city
-      , data = train
-      , weights = varPower(form = ~ fitted(.))
-      , control = lmeControl(maxIter = 1e4) 
-      )
-
-summary(case.rate.lme20201031.reweighed)
-```
-``` {r fig.width=10, fig.height=30}
-
-output <- metricsFuncLME(model = case.rate.lme20201031.reweighed)
-
-allMetrics <- allMetrics %>% left_join(
-    output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmeWt")})
-    , by = "city"
-    )
-
-
-plotFuncLME(model = case.rate.lme20201031.reweighed
-         , forecastLength = 7)
-```
-``` {r fig.width=10, fig.height=30}
-
-plotFuncLME(model = case.rate.lme20201031.reweighed
-         , forecastLength = 14)
-```
-
-
-<!-- ## LME Weighted Residual + Walking-7 -->
-<!-- ```{r} -->
-<!-- case.rate.lme20201031.reweighed.walking7 <-  -->
-<!--   lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend + walkingMinus7 -->
-<!--       , random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city -->
-<!--       , data = train -->
-<!--       , weights = varPower(form = ~ fitted(.)) -->
-<!--       , control = lmeControl(maxIter = 1e4)  -->
-<!--       ) -->
-
-<!-- summary(case.rate.lme20201031.reweighed.walking7) -->
-<!-- ``` -->
-<!-- ``` {r fig.width=10, fig.height=30} -->
-
-<!-- output <- metricsFuncLME(model = case.rate.lme20201031.reweighed.walking7) -->
-
-<!-- allMetrics <- allMetrics %>% left_join( -->
-<!--     output$performMetrics %>% -->
-<!--       rename_at(vars(-city), function(x) {paste0(x, "_lmeWtWk7")}) -->
-<!--     , by = "city" -->
-<!--     ) -->
-
-
-<!-- plotFuncLME(model = case.rate.lme20201031.reweighed.walking7 -->
-<!--          , forecastLength = 7) -->
-<!-- ``` -->
-
-<!-- ``` {r fig.width=10, fig.height=30} -->
-
-<!-- plotFuncLME(model = case.rate.lme20201031.reweighed.walking7 -->
-<!--          , forecastLength = 14) -->
-<!-- ``` -->
-
-## Naive Multiple Regression
-
-Automate some functions specific to LM object
-```{r}
-forecastLM <- function(model, test) # provide model obj and test set
-{
-  for (i in 1:nrow(test))
-  {
-    
-    pred <- predict(model, newdata = test[i,], interval = "prediction", level = 0.95) %>% as.data.frame()
-    test[i, 'pred'] <- pred$fit
-    test[i, 'lowerCI'] <- pred$lwr
-    test[i, 'upperCI'] <- pred$upr
-    
-    
-    # if second day or later, use pred case.rate as lag-1
-    if ( i <= (nrow(test)-1) & as.Date(test[i+1,'date']) > cutOff+1)
-    {
-      test[i+1, 'casesTminus1.rate'] <- pred$fit
-    }
-    
-    # if third day or later, use pred case.rate as lag-2
-    if (i <= (nrow(test)-2) & as.Date(test[i+2,'date']) > (cutOff + 2))
-    {
-      test[i+2, 'casesTminus2.rate'] <- pred$fit
-    }
-  
-  }
-  
-  return(test)
-}
-
-# 
-# 
-# temp <- forecastLM(model = case.rate.lm
-#         , test = test14
-#         )
-
-
-metricsFuncLM <- function(model)
-{
-  results7 <- forecastLM(model, test = test7)
-  
-  results14 <- forecastLM(model, test = test14)
-  
-  metrics <- results7 %>% 
+# pull all metrics into one dataframe called dailyMetrics
+metrics <- test %>% 
+    filter(as.Date(date) <= cutOff + 7) %>%
     group_by(city) %>% 
     summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
               , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
               , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
               ) %>%
-    left_join( results14 %>% 
+    left_join( test %>% 
                  group_by(city) %>% 
                  summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
                            , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
@@ -781,633 +351,1636 @@ metricsFuncLM <- function(model)
                            )
                , by = "city"
                , suffix = c("_7d", "_14d")
-               ) 
-  
-  return(list(performMetrics = metrics
-              , results7 = results7
-              , results14 = results14))
-}
+               ) %>%
+    rename_at(vars(-city), ~ paste0(modelName,.)) %>%
+    arrange(as.character(city))
 
-
-
-
-plotFuncLM <- function(model, forecastLength)
-{
-  
-  
-  if(forecastLength == 7)
-  { results = output$results7
-    
-    metrics <- output$performMetrics %>% 
-      select(city, contains("7d"))
-  }
-  
-  if(forecastLength == 14)
-  { results = output$results14
-    
-    metrics <- output$performMetrics %>% 
-      select(city, contains("14d")) 
-  }
-  
-  metrics <- setNames(metrics, gsub("_.*", "", names(metrics)))
-
-  pred <- predict(model, newdata = train, interval = "prediction", level = 0.95)
-
-  plotDF <- train %>% 
-    select(city, day031620, case.rate) %>%
-    mutate(city = as.character(city)) %>%
-    cbind(pred) %>%
-    rename(fitted = fit
-           , lowerCI.fitted = lwr
-           , upperCI.fitted = upr
-           ) %>%
-    reshape::melt(id = c('city', 'day031620')) %>%
-    
-    # bring into forecasted case rates
-    rbind(results %>% 
-            select(city, day031620, case.rate, pred, upperCI, lowerCI) %>% 
-            rename(upperCI.pred = upperCI
-                   , lowerCI.pred = lowerCI
-                   ) %>%
-            reshape2::melt(id = c('city', 'day031620'))
-          ) 
-      
-  
-  p <- ggplot(plotDF 
-              , aes(day031620, value, group = variable, colour = variable)) +
-    
-    geom_line(data = filter(plotDF, variable == 'case.rate'), linetype = "solid", color = 'black', alpha = 0.6) + 
-    geom_line(data = filter(plotDF, variable == 'fitted'), linetype = "solid", color = 'red') +
-    geom_line(data = filter(plotDF, variable == 'pred'), linetype = "solid", color = 'blue') +
-    
-    # uncertainty band for fitted model
-    geom_ribbon(data = filter(plotDF, variable == 'lowerCI.fitted')
-      , aes(ymin = filter(plotDF, variable == 'lowerCI.fitted')$value
-                    , ymax =  filter(plotDF, variable == 'upperCI.fitted')$value
-                    )
-                , alpha = 0.3, color = NA
-                , fill = "red") +
-    
-    # prediction band for forecast
-    geom_ribbon(data = filter(plotDF, variable == 'lowerCI.pred')
-      , aes(ymin = filter(plotDF, variable == 'lowerCI.pred')$value
-                    , ymax =  filter(plotDF, variable == 'upperCI.pred')$value
-                    )
-                , alpha = 0.3, color = NA
-                , fill = "blue") +
-    
-    facet_wrap(. ~ city, ncol = 2) +
-    ggtitle('Forecast 7 Days') +
-    ylab('Case Rate per 100,000 People') +
-    xlab('Days since March 16, 2020') +
-    #ylim(-15,100) +
-    
-    # add performance metrics
-    geom_label(data = metrics %>% mutate(MAPE = paste0("MAPE = ", MAPE))
-               , aes(label = MAPE), 
-              x = 0, y = max(abs(filter(plotDF, variable == 'case.rate')$value)), hjust="inward", vjust="inward",
-              inherit.aes = FALSE) +
-    geom_label(data = metrics %>% mutate(MAE = paste0("MAE = ", MAE))
-               , aes(label = MAE),
-              x = 0, y = max(abs(filter(plotDF, variable == 'case.rate')$value))*4/5, hjust="inward", vjust="inward",
-              inherit.aes = FALSE) +
-    geom_label(data = metrics %>% mutate(CP = paste0("CP = ", CP))
-                , aes(label = CP),
-               x = 0, y = max(abs(filter(plotDF, variable == 'case.rate')$value))*3/5, hjust="inward", vjust="inward",
-               inherit.aes = FALSE) +
-
-    theme_classic() +
-    theme(legend.position = 'none') 
-  
-  
-  p
-}
+dailyMetrics <- metrics
 
 ```
 
 
-```{r lm}
-case.rate.lm <- 
-  lm( case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend
-       , data = train
-       )
-
-summary(case.rate.lm)
-```
-```{r fig.width=10, fig.height=30}
-
-output <- metricsFuncLM(model = case.rate.lm)
-
-allMetrics <- allMetrics %>% left_join(
-    output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lm")})
-    , by = "city"
-    )
-
-plotFuncLM(model = case.rate.lm
-         , forecastLength = 7)
-
-
-```
-
-
-
-
-```{r fig.width=10, fig.height=30}
-plotFuncLM(model = case.rate.lm
-         , forecastLength = 14)
-```
-
-
-
-<!-- ## Naive Multiple Regression with Walking-7 -->
-
-<!-- ```{r } -->
-<!-- case.rate.lm.walking7 <- -->
-<!--   lm( case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend + walkingMinus7 -->
-<!--        , data = train -->
-<!--        ) -->
-
-<!-- summary(case.rate.lm.walking7) -->
-
-
-<!-- ``` -->
-
-
-
-<!-- ```{r fig.width=10, fig.height=30} -->
-
-<!-- output <- metricsFuncLM(model = case.rate.lm.walking7) -->
-
-<!-- allMetrics <- allMetrics %>% left_join( -->
-<!--     output$performMetrics %>% -->
-<!--       rename_at(vars(-city), function(x) {paste0(x, "_lmWk7")}) -->
-<!--     , by = "city" -->
-<!--     ) -->
-
-<!-- plotFuncLM(model = case.rate.lm.walking7 -->
-<!--          , forecastLength = 7) -->
-
-
-<!-- ``` -->
-
-
-
-
-<!-- ```{r fig.width=10, fig.height=30} -->
-<!-- plotFuncLM(model = case.rate.lm.walking7 -->
-<!--          , forecastLength = 14) -->
-<!-- ``` -->
-
-
-## Log-transformed Case Rate
-
-
+## LM
 ```{r}
-
-train <- train %>% 
-  mutate(case.rate = log(case.rate)
-         , casesTminus1.rate = log(casesTminus1.rate)
-         , casesTminus2.rate = log(casesTminus2.rate)
-         )
-
-test7 <- test7  %>% 
-  mutate(case.rate = log(case.rate)
-         , casesTminus1.rate = log(casesTminus1.rate)
-         , casesTminus2.rate = log(casesTminus2.rate)
-         )
-
-test14 <- test14  %>% 
-  mutate(case.rate = log(case.rate)
-         , casesTminus1.rate = log(casesTminus1.rate)
-         , casesTminus2.rate = log(casesTminus2.rate)
-         )
-```
-
-
-### LME-Log
-```{r}
-lmeLog <- 
-  lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend,
-      random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city,
-      data = train
-      )
-
-summary(lmeLog)
-```
-
-
-``` {r fig.width=10, fig.height=30}
-
-output <- metricsFuncLME(model = lmeLog)
-
-allMetrics <- allMetrics %>% left_join(
-    output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmeLog")})
-    , by = "city"
-    )
-
-plotFuncLME(model = lmeLog
-         , forecastLength = 7)
-```
-
-``` {r fig.width=10, fig.height=30}
-
-plotFuncLME(model = lmeLog
-         , forecastLength = 14)
-```
-
-### LME-Log weighted residual
-```{r}
-lmeLogWt <- 
-  lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend
-      , random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city
-      , data = train
-      , weights = varPower(form = ~ fitted(.))
-      , control = lmeControl(maxIter = 1e4) 
-      )
-
-summary(lmeLogWt)
-```
-``` {r fig.width=10, fig.height=30}
-
-output <- metricsFuncLME(model = lmeLogWt)
-
-allMetrics <- allMetrics %>% left_join(
-    output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmeLogWt")})
-    , by = "city"
-    )
-
-plotFuncLME(model = lmeLogWt
-         , forecastLength = 7)
-```
-
-``` {r fig.width=10, fig.height=30}
-
-plotFuncLME(model = lmeLogWt
-         , forecastLength = 14)
-```
-
-
-### Naive Multiple Regression-Log
-
-```{r}
-lmLog <- 
-  lm( case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend
-       , data = train
-       )
-
-summary(lmLog)
-```
-```{r fig.width=10, fig.height=30}
-
-output <- metricsFuncLM(model = lmLog)
-
-allMetrics <- allMetrics %>% left_join(
-    output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmLog")})
-    , by = "city"
-    )
-
-plotFuncLM(model = lmLog
-         , forecastLength = 7)
-
-
-```
-
-
-
-
-```{r fig.width=10, fig.height=30}
-plotFuncLM(model = lmLog
-         , forecastLength = 14)
-```
-
-
-
-
-## Summary Metrics Mar-Nov
-``` {r}
-
-allMetrics %>% select(city, starts_with("MAPE_7d")) %>%
-  arrange(as.character(city)) %>%
-  as.data.frame() %>%
-  format(scientific = F) %>%
-  print()
-
-```
-
-``` {r}
-
-allMetrics %>% select(city, starts_with("MAE_7d")) %>%
-  arrange(as.character(city)) %>% 
-  as.data.frame() %>%
-  print()
-
-```
-
-``` {r}
-
-allMetrics %>% select(city, starts_with("CP_7d")) %>%
-  arrange(as.character(city)) %>%
-  as.data.frame() %>%
-  print()
-
-```
-
-
-
-``` {r}
-
-allMetrics %>% select(city, starts_with("MAPE_14d")) %>%
-  arrange(as.character(city)) %>%
-  as.data.frame() %>%
-  format(scientific = F) %>%
-  print()
-
-```
-
-``` {r}
-
-allMetrics %>% select(city, starts_with("MAE_14d")) %>%
-  arrange(as.character(city)) %>% 
-  as.data.frame() %>%
-  print()
-
-```
-
-``` {r}
-
-allMetrics %>% select(city, starts_with("CP_14d")) %>%
-  arrange(as.character(city)) %>%
-  as.data.frame() %>%
-  print()
-
-```
-
-
-
-
-## Change training period to August 31st
-``` {r }
-
-cutOff <- as.Date("2020-08-31")
+modelName <- 'lmAug_'
 
 train <- alldata.groupedR %>% 
-  filter(day031620 >= 0 & as.Date(date) <= cutOff)
+  filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff))
 
+model <- lm(case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend,
+    data = train
+    )
+summary(model)
 
-test7 <- alldata.groupedR %>% 
-  filter(day031620 >= 0 & as.Date(date) > cutOff & as.Date(date) <= (cutOff + 7)) %>%
-  select(city, day031620, date, weekend, case.rate, casesTminus1.rate, casesTminus2.rate, walkingMinus7, walkingMinus14) %>%
-  
-  # retained lag case rates for first 2 days only, zero out the rest
+test <- alldata.groupedR %>% 
+filter(as.Date(date) >= startDate 
+       & as.Date(date) > cutOff
+       & as.Date(date) <= (cutOff + testRange)
+       ) %>%
+select(city, day031620, date, weekend, case.rate, casesTminus1.rate, casesTminus2.rate) %>%
   mutate(
-    casesTminus1.rate = case_when(as.Date(date) == (cutOff + 1) ~ casesTminus1.rate
-                                    , TRUE ~ 0
-                                  ) 
-    , casesTminus2.rate = case_when(as.Date(date) == (cutOff + 1) | as.Date(date) == (cutOff + 2) ~ casesTminus2.rate
-                                    , TRUE ~ 0
-                                  ) 
-  )
+    casesTminus1.rate = case_when( mod(as.numeric(as.Date(date) - cutOff), 7) == 1 ~ casesTminus1.rate
+         , TRUE ~ as.numeric(NA))
+    , casesTminus2.rate = 
+           case_when( mod(as.numeric(as.Date(date) - cutOff), 7) %in% c(1,2) ~ casesTminus2.rate
+         , TRUE ~ as.numeric(NA))
+         )
+         
+  
+for (i in 1:testRange)
+{
+  if(i >1 & i %% 7 == 1) # update only when predicting on 8th, 15th, etc. days
+  {
+    train <- alldata.groupedR %>% 
+      filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff - 1 + i))
+
+    model <- update(model, data = train)
+  }
   
   
-test14 <- alldata.groupedR %>% 
-  filter(day031620 >= 0 & as.Date(date) > cutOff & as.Date(date) <= (cutOff + 14)) %>%
-  select(city, day031620, date, weekend, case.rate, casesTminus1.rate, casesTminus2.rate, walkingMinus7, walkingMinus14) %>%
+  tempTest <- test %>% filter(as.Date(date) == cutOff + i)
+
+  pred <- predict(model, newdata = test[i,], interval = "prediction", level = 0.95) %>% as.data.frame()
+  tempTest$pred <- pred$fit
+  tempTest$lowerCI <- pred$lwr
+  tempTest$upperCI <- pred$upr
   
-  # retained lag case rates for first 2 days only, zero out the rest
+  test %<>%
+    left_join(tempTest %>% select(city, date, pred, lowerCI, upperCI)
+              , by = c("date" = "date", "city" = "city"))
+   
+  if(i > 1)
+  {
+    test %<>% 
+      mutate(pred = coalesce(pred.x, pred.y)
+             , lowerCI = coalesce(lowerCI.x, lowerCI.y)
+             , upperCI = coalesce(upperCI.x, upperCI.y)
+             ) %>%
+      select(-pred.x, -pred.y
+             , -lowerCI.x, -lowerCI.y
+             , -upperCI.x, -upperCI.y)
+  }
+  
+  # bring forward predictions
+  test %<>% 
+    mutate(casesTminus1.rate =  case_when(is.na(casesTminus1.rate) ~ lag(as.numeric(pred)), TRUE ~ casesTminus1.rate)
+           , casesTminus2.rate =  case_when(is.na(casesTminus2.rate) ~ lag(as.numeric(pred), 2), TRUE ~ casesTminus2.rate)
+           )
+  
+}
+
+metrics <- test %>% 
+    filter(as.Date(date) <= cutOff + 7) %>%
+    group_by(city) %>% 
+    summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+              , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+              , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+              ) %>%
+    left_join( test %>% 
+                 group_by(city) %>% 
+                 summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+                           , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+                           , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+                           )
+               , by = "city"
+               , suffix = c("_7d", "_14d")
+               ) %>%
+    rename_at(vars(-city), ~ paste0(modelName,.)) %>%
+    arrange(as.character(city))
+
+
+dailyMetrics %<>% 
+  left_join(metrics, by = "city")
+
+```
+
+
+
+## LME + Walking
+```{r}
+
+modelName = 'lmeWalkingAug_' 
+
+train <- alldata.groupedR %>% 
+  filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff))
+
+model <- lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend + walkingMinus7,
+    random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city,
+    data = train
+    )
+summary(model)
+
+# test to hold all date data points up to testRange
+test <- alldata.groupedR %>% 
+filter(as.Date(date) >= startDate 
+       & as.Date(date) > cutOff
+       & as.Date(date) <= (cutOff + testRange)
+       ) %>%
+  select(city, day031620, date, weekend, case.rate, casesTminus1.rate, casesTminus2.rate, walkingMinus7) %>%
   mutate(
-    casesTminus1.rate = case_when(as.Date(date) == (cutOff + 1) ~ casesTminus1.rate
-                                    , TRUE ~ 0
-                                  ) 
-    , casesTminus2.rate = case_when(as.Date(date) == (cutOff + 1) | as.Date(date) == (cutOff + 2) ~ casesTminus2.rate
-                                    , TRUE ~ 0
-                                  ) 
-  )
+    casesTminus1.rate = case_when( mod(as.numeric(as.Date(date) - cutOff), 7) == 1 ~ casesTminus1.rate
+         , TRUE ~ as.numeric(NA))
+    , casesTminus2.rate = 
+           case_when( mod(as.numeric(as.Date(date) - cutOff), 7) %in% c(1,2) ~ casesTminus2.rate
+         , TRUE ~ as.numeric(NA))
+         )
+         
+         
 
 
-nrow(train)
-nrow(test7)
-nrow(test14)
-```
+# Predict one new observation at a time
+# For each new 7-day period, refit the model with actual observed Y
+for (i in 1:testRange)
+{
   
-### LME
-``` {r }
+  if(i >1 & i %% 7 == 1) # update only when predicting on 8th, 15th, etc. days
+  {
+    train <- alldata.groupedR %>% 
+      filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff - 1 + i))
 
-case.rate.lme20200831 <- 
-  lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend,
-      random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city,
-      data = train
-      )
+    model <- update(model, data = train)
+  }
+  
+  #print(i)
+  #print(model)
+  
+  # test to check correct training window
+  # print(i)
+  # print(max(as.Date(train$date)))
+  
+  
+  tempTest <- test %>% 
+    filter(as.Date(date) == cutOff + i)
+  
+  tempTest$pred <- predict(model, newdata = tempTest)
 
-summary(case.rate.lme20200831)
+  
+  # test to check for correct test window
+  # print(max(as.Date(tempTest$date)))
+  
+  # create design matrix
+  # [-2] drops response from formula
+  Designmat <- model.matrix(formula(model)[-2], tempTest)
+  
+  # compute XVX′ to get the variance-covariance matrix of the predictions
+  # extract the diagonal of this matrix to get variances of predictions
+  predvar <- diag(Designmat %*% vcov(model) %*% t(Designmat)) 
+  #results7$SE <- sqrt(predvar) 
+  tempTest$SE <- sqrt(predvar + model$sigma^2) # sigma is the estimated within-group error standard deviation
+  tempTest$lowerCI <- tempTest$pred - 1.96*tempTest$SE
+  tempTest$upperCI <- tempTest$pred + 1.96*tempTest$SE
+  
+  test %<>%
+    left_join(tempTest %>% select(city, date, pred, lowerCI, upperCI)
+              , by = c("date" = "date", "city" = "city"))
+  
+  # clean up extra columns after join 
+  if(i > 1)
+  {
+    test %<>% 
+      mutate(pred = coalesce(pred.x, pred.y)
+             , lowerCI = coalesce(lowerCI.x, lowerCI.y)
+             , upperCI = coalesce(upperCI.x, upperCI.y)
+             ) %>%
+      select(-pred.x, -pred.y
+             , -lowerCI.x, -lowerCI.y
+             , -upperCI.x, -upperCI.y)
+  }
+  
+  # bring forward predictions
+  test %<>% 
+    mutate(casesTminus1.rate =  case_when(is.na(casesTminus1.rate) ~ lag(as.numeric(pred)), TRUE ~ casesTminus1.rate)
+           , casesTminus2.rate =  case_when(is.na(casesTminus2.rate) ~ lag(as.numeric(pred), 2), TRUE ~ casesTminus2.rate)
+           )
+}
+
+
+
+# pull all metrics into one dataframe called dailyMetrics
+metrics <- test %>% 
+    filter(as.Date(date) <= cutOff + 7) %>%
+    group_by(city) %>% 
+    summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+              , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+              , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+              ) %>%
+    left_join( test %>% 
+                 group_by(city) %>% 
+                 summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+                           , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+                           , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+                           )
+               , by = "city"
+               , suffix = c("_7d", "_14d")
+               ) %>%
+    rename_at(vars(-city), ~ paste0(modelName,.)) %>%
+    arrange(as.character(city))
+
+dailyMetrics %<>% 
+  left_join(metrics, by = "city")
 
 ```
 
-``` {r fig.width=10, fig.height=30}
 
-output <- metricsFuncLME(model = case.rate.lme20200831)
-
-allMetrics <- output$performMetrics %>%
-  rename_at(vars(-city), function(x) {paste0(x, "_lme")})
-
-plotFuncLME(model = case.rate.lme20200831
-         , forecastLength = 7)
-```
-``` {r fig.width=10, fig.height=30}
-
-plotFuncLME(model = case.rate.lme20200831
-         , forecastLength = 14)
-```
-
-### Weighted Residual LME
-
-Use weights to account for within-group heteroskedasticity
-
-```{r }
-case.rate.lme20200831.reweighed <- 
-  lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend
-      , random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city
-      , data = train
-      , weights = varPower(form = ~ fitted(.))
-      , control = lmeControl(maxIter = 1e4) 
-      )
-
-summary(case.rate.lme20200831.reweighed)
-```
-``` {r fig.width=10, fig.height=30}
-
-output <- metricsFuncLME(model = case.rate.lme20200831.reweighed)
-
-allMetrics <- allMetrics %>% left_join(
-    output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmeWt")})
-    , by = "city"
-    )
-
-
-plotFuncLME(model = case.rate.lme20200831.reweighed
-         , forecastLength = 7)
-```
-``` {r fig.width=10, fig.height=30}
-
-plotFuncLME(model = case.rate.lme20200831.reweighed
-         , forecastLength = 14)
-```
-
-
-
-### Naive Multiple Regression
-
+## LM + Walking
 ```{r}
-case.rate.lm20200831 <- 
-  lm( case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend
-       , data = train
-       )
+modelName <- 'lmWalkingAug_'
 
-summary(case.rate.lm)
-```
-```{r fig.width=10, fig.height=30}
+train <- alldata.groupedR %>% 
+  filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff))
 
-output <- metricsFuncLM(model = case.rate.lm20200831)
-
-allMetrics <- allMetrics %>% left_join(
-    output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lm")})
-    , by = "city"
+model <- lm(case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend + walkingMinus7,
+    data = train
     )
+summary(model)
 
-plotFuncLM(model = case.rate.lm20200831
-         , forecastLength = 7)
+test <- alldata.groupedR %>% 
+filter(as.Date(date) >= startDate 
+       & as.Date(date) > cutOff
+       & as.Date(date) <= (cutOff + testRange)
+       ) %>%
+select(city, day031620, date, weekend, case.rate, casesTminus1.rate, casesTminus2.rate, walkingMinus7) %>%
+  mutate(
+    casesTminus1.rate = case_when( mod(as.numeric(as.Date(date) - cutOff), 7) == 1 ~ casesTminus1.rate
+         , TRUE ~ as.numeric(NA))
+    , casesTminus2.rate = 
+           case_when( mod(as.numeric(as.Date(date) - cutOff), 7) %in% c(1,2) ~ casesTminus2.rate
+         , TRUE ~ as.numeric(NA))
+         )
+         
+  
+for (i in 1:testRange)
+{
+  if(i >1 & i %% 7 == 1) # update only when predicting on 8th, 15th, etc. days
+  {
+    train <- alldata.groupedR %>% 
+      filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff - 1 + i))
 
+    model <- update(model, data = train)
+  }
+  
+  
+  tempTest <- test %>% filter(as.Date(date) == cutOff + i)
+
+  pred <- predict(model, newdata = test[i,], interval = "prediction", level = 0.95) %>% as.data.frame()
+  tempTest$pred <- pred$fit
+  tempTest$lowerCI <- pred$lwr
+  tempTest$upperCI <- pred$upr
+  
+  test %<>%
+    left_join(tempTest %>% select(city, date, pred, lowerCI, upperCI)
+              , by = c("date" = "date", "city" = "city"))
+   
+  if(i > 1)
+  {
+    test %<>% 
+      mutate(pred = coalesce(pred.x, pred.y)
+             , lowerCI = coalesce(lowerCI.x, lowerCI.y)
+             , upperCI = coalesce(upperCI.x, upperCI.y)
+             ) %>%
+      select(-pred.x, -pred.y
+             , -lowerCI.x, -lowerCI.y
+             , -upperCI.x, -upperCI.y)
+  }
+  
+  # bring forward predictions
+  test %<>% 
+    mutate(casesTminus1.rate =  case_when(is.na(casesTminus1.rate) ~ lag(as.numeric(pred)), TRUE ~ casesTminus1.rate)
+           , casesTminus2.rate =  case_when(is.na(casesTminus2.rate) ~ lag(as.numeric(pred), 2), TRUE ~ casesTminus2.rate)
+           )
+  
+}
+
+metrics <- test %>% 
+    filter(as.Date(date) <= cutOff + 7) %>%
+    group_by(city) %>% 
+    summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+              , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+              , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+              ) %>%
+    left_join( test %>% 
+                 group_by(city) %>% 
+                 summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+                           , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+                           , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+                           )
+               , by = "city"
+               , suffix = c("_7d", "_14d")
+               ) %>%
+    rename_at(vars(-city), ~ paste0(modelName,.)) %>%
+    arrange(as.character(city))
+
+
+dailyMetrics %<>% 
+  left_join(metrics, by = "city")
 
 ```
 
 
 
 
-```{r fig.width=10, fig.height=30}
-plotFuncLM(model = case.rate.lm
-         , forecastLength = 14)
-```
 
 
-
-## Log-transformed Case Rate
-
-
+## LME-Log
 ```{r}
 
-train <- train %>% 
-  mutate(case.rate = log(case.rate)
-         , casesTminus1.rate = log(casesTminus1.rate)
-         , casesTminus2.rate = log(casesTminus2.rate)
+modelName = 'lmeLogAug_' 
+
+train <- alldata.groupedR %>% 
+  filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff))
+
+
+model <- lme(fixed = log(case.rate) ~ log(casesTminus1.rate) + log(casesTminus2.rate) + weekend,
+    random = ~ log(casesTminus1.rate) + log(casesTminus2.rate) - 1 | city,
+    data = train
+    , control = lmeControl(maxIter = 1e8, opt='optim') 
+    )
+summary(model)
+
+# test to hold all date data points up to testRange
+test <- alldata.groupedR %>% 
+  filter(as.Date(date) >= startDate 
+       & as.Date(date) > cutOff
+       & as.Date(date) <= (cutOff + testRange)
+       ) %>%
+  select(city, day031620, date, weekend, case.rate, casesTminus1.rate, casesTminus2.rate) %>%
+  mutate(
+    casesTminus1.rate = case_when( mod(as.numeric(as.Date(date) - cutOff), 7) == 1 ~ casesTminus1.rate
+         , TRUE ~ as.numeric(NA))
+    , casesTminus2.rate = 
+           case_when( mod(as.numeric(as.Date(date) - cutOff), 7) %in% c(1,2) ~ casesTminus2.rate
+         , TRUE ~ as.numeric(NA))
          )
 
-test7 <- test7  %>% 
-  mutate(case.rate = log(case.rate)
-         , casesTminus1.rate = log(casesTminus1.rate)
-         , casesTminus2.rate = log(casesTminus2.rate)
+for (i in 1:testRange)
+{
+  
+  if(i >1 & i %% 7 == 1) # update only when predicting on 8th, 15th, etc. days
+  {
+    train <- alldata.groupedR %>% 
+      filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff - 1 + i))
+
+    model <- update(model, data = train)
+  }
+  
+  # test to check correct training window
+  # print(i)
+  # print(max(as.Date(train$date)))
+  
+  # filter test set to calculate pred for only 1 day at a time
+  tempTest <- test %>% filter(as.Date(date) == cutOff + i)
+  tempTest$pred <- predict(model, newdata = tempTest)
+  
+  # test to check for correct test window
+  # print(max(as.Date(tempTest$date)))
+  
+  # create design matrix
+  # [-2] drops response from formula
+  Designmat <- model.matrix(formula(model)[-2], tempTest)
+  
+  # compute XVX′ to get the variance-covariance matrix of the predictions
+  # extract the diagonal of this matrix to get variances of predictions
+  predvar <- diag(Designmat %*% vcov(model) %*% t(Designmat)) 
+  #results7$SE <- sqrt(predvar) 
+  tempTest$SE <- sqrt(predvar + model$sigma^2) # sigma is the estimated within-group error standard deviation
+  tempTest$lowerCI <- tempTest$pred - 1.96*tempTest$SE
+  tempTest$upperCI <- tempTest$pred + 1.96*tempTest$SE
+  
+  tempTest %<>% 
+    mutate(pred = exp(pred)
+           , lowerCI = exp(lowerCI)
+           , upperCI = exp(upperCI)
+           )
+  
+  test %<>%
+    left_join(tempTest %>% select(city, date, pred, lowerCI, upperCI)
+              , by = c("date" = "date", "city" = "city"))
+   
+  if(i > 1)
+  {
+    test %<>% 
+      mutate(pred = coalesce(pred.x, pred.y)
+             , lowerCI = coalesce(lowerCI.x, lowerCI.y)
+             , upperCI = coalesce(upperCI.x, upperCI.y)
+             ) %>%
+      select(-pred.x, -pred.y
+             , -lowerCI.x, -lowerCI.y
+             , -upperCI.x, -upperCI.y)
+  }
+  
+  # bring forward predictions
+  test %<>% 
+    mutate(casesTminus1.rate =  case_when(is.na(casesTminus1.rate) ~ lag(as.numeric(pred)), TRUE ~ casesTminus1.rate)
+           , casesTminus2.rate =  case_when(is.na(casesTminus2.rate) ~ lag(as.numeric(pred), 2), TRUE ~ casesTminus2.rate)
+           )
+}
+
+
+
+# pull all metrics into one dataframe called dailyMetrics
+metrics <- test %>% 
+    filter(as.Date(date) <= cutOff + 7) %>%
+    group_by(city) %>% 
+    summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+              , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+              , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+              ) %>%
+    left_join( test %>% 
+                 group_by(city) %>% 
+                 summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+                           , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+                           , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+                           )
+               , by = "city"
+               , suffix = c("_7d", "_14d")
+               ) %>%
+    rename_at(vars(-city), ~ paste0(modelName,.)) %>%
+    arrange(as.character(city))
+
+dailyMetrics %<>% 
+  left_join(metrics, by = "city")
+
+```
+
+## LM-Log
+```{r}
+modelName <- 'lmLogAug_'
+
+train <- alldata.groupedR %>% 
+  filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff))
+
+model <- lm(log(case.rate) ~ log(casesTminus1.rate) + log(casesTminus2.rate) + weekend,
+    data = train
+    )
+summary(model)
+
+test <- alldata.groupedR %>% 
+  filter(as.Date(date) >= startDate 
+       & as.Date(date) > cutOff
+       & as.Date(date) <= (cutOff + testRange)
+       ) %>%
+  select(city, day031620, date, weekend, case.rate, casesTminus1.rate, casesTminus2.rate) %>%
+  mutate(
+    casesTminus1.rate = case_when( mod(as.numeric(as.Date(date) - cutOff), 7) == 1 ~ casesTminus1.rate
+         , TRUE ~ as.numeric(NA))
+    , casesTminus2.rate = 
+           case_when( mod(as.numeric(as.Date(date) - cutOff), 7) %in% c(1,2) ~ casesTminus2.rate
+         , TRUE ~ as.numeric(NA))
+         )
+  
+for (i in 1:testRange)
+{
+  if(i >1 & i %% 7 == 1) # update only when predicting on 8th, 15th, etc. days
+  {
+    train <- alldata.groupedR %>% 
+      filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff - 1 + i))
+
+    model <- update(model, data = train)
+  }
+  
+  
+  tempTest <- test %>% filter(as.Date(date) == cutOff + i)
+
+  pred <- predict(model, newdata = test[i,], interval = "prediction", level = 0.95) %>% as.data.frame()
+  tempTest$pred <- exp(pred$fit)
+  tempTest$lowerCI <- exp(pred$lwr)
+  tempTest$upperCI <- exp(pred$upr)
+  
+  test %<>%
+    left_join(tempTest %>% select(city, date, pred, lowerCI, upperCI)
+              , by = c("date" = "date", "city" = "city"))
+   
+  if(i > 1)
+  {
+    test %<>% 
+      mutate(pred = coalesce(pred.x, pred.y)
+             , lowerCI = coalesce(lowerCI.x, lowerCI.y)
+             , upperCI = coalesce(upperCI.x, upperCI.y)
+             ) %>%
+      select(-pred.x, -pred.y
+             , -lowerCI.x, -lowerCI.y
+             , -upperCI.x, -upperCI.y)
+  }
+
+  # bring forward predictions
+  test %<>% 
+    mutate(casesTminus1.rate =  case_when(is.na(casesTminus1.rate) ~ lag(as.numeric(pred)), TRUE ~ casesTminus1.rate)
+           , casesTminus2.rate =  case_when(is.na(casesTminus2.rate) ~ lag(as.numeric(pred), 2), TRUE ~ casesTminus2.rate)
+           )  
+}
+
+metrics <- test %>% 
+    filter(as.Date(date) <= cutOff + 7) %>%
+    group_by(city) %>% 
+    summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+              , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+              , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+              ) %>%
+    left_join( test %>% 
+                 group_by(city) %>% 
+                 summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+                           , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+                           , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+                           )
+               , by = "city"
+               , suffix = c("_7d", "_14d")
+               ) %>%
+    rename_at(vars(-city), ~ paste0(modelName,.)) %>%
+    arrange(as.character(city))
+
+
+dailyMetrics %<>% 
+  left_join(metrics, by = "city")
+
+```
+
+
+
+## LME-Log + Walking
+```{r}
+
+modelName = 'lmeLogWalkingAug_' 
+
+train <- alldata.groupedR %>% 
+  filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff))
+
+
+model <- lme(fixed = log(case.rate) ~ log(casesTminus1.rate) + log(casesTminus2.rate) + weekend + walkingMinus7,
+    random = ~ log(casesTminus1.rate) + log(casesTminus2.rate) - 1 | city,
+    data = train
+    , control = lmeControl(maxIter = 1e8, opt='optim') 
+    )
+summary(model)
+
+# test to hold all date data points up to testRange
+test <- alldata.groupedR %>% 
+  filter(as.Date(date) >= startDate 
+       & as.Date(date) > cutOff
+       & as.Date(date) <= (cutOff + testRange)
+       ) %>%
+  select(city, day031620, date, weekend, case.rate, casesTminus1.rate, casesTminus2.rate, walkingMinus7) %>%
+  mutate(
+    casesTminus1.rate = case_when( mod(as.numeric(as.Date(date) - cutOff), 7) == 1 ~ casesTminus1.rate
+         , TRUE ~ as.numeric(NA))
+    , casesTminus2.rate = 
+           case_when( mod(as.numeric(as.Date(date) - cutOff), 7) %in% c(1,2) ~ casesTminus2.rate
+         , TRUE ~ as.numeric(NA))
          )
 
-test14 <- test14  %>% 
-  mutate(case.rate = log(case.rate)
-         , casesTminus1.rate = log(casesTminus1.rate)
-         , casesTminus2.rate = log(casesTminus2.rate)
+for (i in 1:testRange)
+{
+  
+  if(i >1 & i %% 7 == 1) # update only when predicting on 8th, 15th, etc. days
+  {
+    train <- alldata.groupedR %>% 
+      filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff - 1 + i))
+
+    model <- update(model, data = train)
+  }
+  
+  # test to check correct training window
+  # print(i)
+  # print(max(as.Date(train$date)))
+  
+  # filter test set to calculate pred for only 1 day at a time
+  tempTest <- test %>% filter(as.Date(date) == cutOff + i)
+  tempTest$pred <- predict(model, newdata = tempTest)
+  
+  # test to check for correct test window
+  # print(max(as.Date(tempTest$date)))
+  
+  # create design matrix
+  # [-2] drops response from formula
+  Designmat <- model.matrix(formula(model)[-2], tempTest)
+  
+  # compute XVX′ to get the variance-covariance matrix of the predictions
+  # extract the diagonal of this matrix to get variances of predictions
+  predvar <- diag(Designmat %*% vcov(model) %*% t(Designmat)) 
+  #results7$SE <- sqrt(predvar) 
+  tempTest$SE <- sqrt(predvar + model$sigma^2) # sigma is the estimated within-group error standard deviation
+  tempTest$lowerCI <- tempTest$pred - 1.96*tempTest$SE
+  tempTest$upperCI <- tempTest$pred + 1.96*tempTest$SE
+  
+  tempTest %<>% 
+    mutate(pred = exp(pred)
+           , lowerCI = exp(lowerCI)
+           , upperCI = exp(upperCI)
+           )
+  
+  test %<>%
+    left_join(tempTest %>% select(city, date, pred, lowerCI, upperCI)
+              , by = c("date" = "date", "city" = "city"))
+   
+  if(i > 1)
+  {
+    test %<>% 
+      mutate(pred = coalesce(pred.x, pred.y)
+             , lowerCI = coalesce(lowerCI.x, lowerCI.y)
+             , upperCI = coalesce(upperCI.x, upperCI.y)
+             ) %>%
+      select(-pred.x, -pred.y
+             , -lowerCI.x, -lowerCI.y
+             , -upperCI.x, -upperCI.y)
+  }
+  
+  # bring forward predictions
+  test %<>% 
+    mutate(casesTminus1.rate =  case_when(is.na(casesTminus1.rate) ~ lag(as.numeric(pred)), TRUE ~ casesTminus1.rate)
+           , casesTminus2.rate =  case_when(is.na(casesTminus2.rate) ~ lag(as.numeric(pred), 2), TRUE ~ casesTminus2.rate)
+           )
+}
+
+
+
+# pull all metrics into one dataframe called dailyMetrics
+metrics <- test %>% 
+    filter(as.Date(date) <= cutOff + 7) %>%
+    group_by(city) %>% 
+    summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+              , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+              , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+              ) %>%
+    left_join( test %>% 
+                 group_by(city) %>% 
+                 summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+                           , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+                           , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+                           )
+               , by = "city"
+               , suffix = c("_7d", "_14d")
+               ) %>%
+    rename_at(vars(-city), ~ paste0(modelName,.)) %>%
+    arrange(as.character(city))
+
+dailyMetrics %<>% 
+  left_join(metrics, by = "city")
+
+```
+
+## LM-Log + Walking
+```{r}
+modelName <- 'lmLogWalkingAug_'
+
+train <- alldata.groupedR %>% 
+  filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff))
+
+model <- lm(log(case.rate) ~ log(casesTminus1.rate) + log(casesTminus2.rate) + weekend + walkingMinus7,
+    data = train
+    )
+summary(model)
+
+test <- alldata.groupedR %>% 
+  filter(as.Date(date) >= startDate 
+       & as.Date(date) > cutOff
+       & as.Date(date) <= (cutOff + testRange)
+       ) %>%
+  select(city, day031620, date, weekend, case.rate, casesTminus1.rate, casesTminus2.rate, walkingMinus7) %>%
+  mutate(
+    casesTminus1.rate = case_when( mod(as.numeric(as.Date(date) - cutOff), 7) == 1 ~ casesTminus1.rate
+         , TRUE ~ as.numeric(NA))
+    , casesTminus2.rate = 
+           case_when( mod(as.numeric(as.Date(date) - cutOff), 7) %in% c(1,2) ~ casesTminus2.rate
+         , TRUE ~ as.numeric(NA))
          )
+  
+for (i in 1:testRange)
+{
+  if(i >1 & i %% 7 == 1) # update only when predicting on 8th, 15th, etc. days
+  {
+    train <- alldata.groupedR %>% 
+      filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff - 1 + i))
+
+    model <- update(model, data = train)
+  }
+  
+  
+  tempTest <- test %>% filter(as.Date(date) == cutOff + i)
+
+  pred <- predict(model, newdata = test[i,], interval = "prediction", level = 0.95) %>% as.data.frame()
+  tempTest$pred <- exp(pred$fit)
+  tempTest$lowerCI <- exp(pred$lwr)
+  tempTest$upperCI <- exp(pred$upr)
+  
+  test %<>%
+    left_join(tempTest %>% select(city, date, pred, lowerCI, upperCI)
+              , by = c("date" = "date", "city" = "city"))
+   
+  if(i > 1)
+  {
+    test %<>% 
+      mutate(pred = coalesce(pred.x, pred.y)
+             , lowerCI = coalesce(lowerCI.x, lowerCI.y)
+             , upperCI = coalesce(upperCI.x, upperCI.y)
+             ) %>%
+      select(-pred.x, -pred.y
+             , -lowerCI.x, -lowerCI.y
+             , -upperCI.x, -upperCI.y)
+  }
+
+  # bring forward predictions
+  test %<>% 
+    mutate(casesTminus1.rate =  case_when(is.na(casesTminus1.rate) ~ lag(as.numeric(pred)), TRUE ~ casesTminus1.rate)
+           , casesTminus2.rate =  case_when(is.na(casesTminus2.rate) ~ lag(as.numeric(pred), 2), TRUE ~ casesTminus2.rate)
+           )  
+}
+
+metrics <- test %>% 
+    filter(as.Date(date) <= cutOff + 7) %>%
+    group_by(city) %>% 
+    summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+              , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+              , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+              ) %>%
+    left_join( test %>% 
+                 group_by(city) %>% 
+                 summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+                           , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+                           , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+                           )
+               , by = "city"
+               , suffix = c("_7d", "_14d")
+               ) %>%
+    rename_at(vars(-city), ~ paste0(modelName,.)) %>%
+    arrange(as.character(city))
+
+
+dailyMetrics %<>% 
+  left_join(metrics, by = "city")
+
 ```
 
 
-### LME-Log
+
+
+
+
+
+# Mar-Nov
+
+## Data partition
 ```{r}
-lmeLog <- 
-  lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend,
-      random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city,
-      data = train
-      )
+cutOff <- as.Date("2020-11-30")
 
-summary(lmeLog)
+testRange <- 14
+
 ```
 
-
-``` {r fig.width=10, fig.height=30}
-
-output <- metricsFuncLME(model = lmeLog)
-
-allMetrics <- allMetrics %>% left_join(
-    output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmeLog")})
-    , by = "city"
-    )
-
-plotFuncLME(model = lmeLog
-         , forecastLength = 7)
-```
-
-``` {r fig.width=10, fig.height=30}
-
-plotFuncLME(model = lmeLog
-         , forecastLength = 14)
-```
-
-### LME-Log weighted residual
+## LME
 ```{r}
-lmeLogWt <- 
-  lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend
-      , random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city
-      , data = train
-      , weights = varPower(form = ~ fitted(.))
-      , control = lmeControl(maxIter = 1e4) 
-      )
 
-summary(lmeLogWt)
-```
-``` {r fig.width=10, fig.height=30}
+modelName = 'lmeNov_' 
 
-output <- metricsFuncLME(model = lmeLogWt)
+train <- alldata.groupedR %>% 
+  filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff))
 
-allMetrics <- allMetrics %>% left_join(
-    output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmeLogWt")})
-    , by = "city"
+model <- lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend,
+    random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city,
+    data = train
     )
+summary(model)
 
-plotFuncLME(model = lmeLogWt
-         , forecastLength = 7)
+# test to hold all date data points up to testRange
+test <- alldata.groupedR %>% 
+  filter(as.Date(date) >= startDate 
+       & as.Date(date) > cutOff
+       & as.Date(date) <= (cutOff + testRange)
+       ) %>%
+  select(city, day031620, date, weekend, case.rate, casesTminus1.rate, casesTminus2.rate) %>%
+  mutate(
+    casesTminus1.rate = case_when( mod(as.numeric(as.Date(date) - cutOff), 7) == 1 ~ casesTminus1.rate
+         , TRUE ~ as.numeric(NA))
+    , casesTminus2.rate = 
+           case_when( mod(as.numeric(as.Date(date) - cutOff), 7) %in% c(1,2) ~ casesTminus2.rate
+         , TRUE ~ as.numeric(NA))
+         )
+
+
+# Predict one new observation at a time
+# For each new test, refit the model with actual observed Y
+for (i in 1:testRange)
+{
+  
+  if(i >1 & i %% 7 == 1) # update only when predicting on 8th, 15th, etc. days
+  {
+    train <- alldata.groupedR %>% 
+      filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff - 1 + i))
+
+    model <- update(model, data = train)
+  }
+  
+  # test to check correct training window
+  # print(i)
+  # print(max(as.Date(train$date)))
+  
+  # filter test set to calculate pred for only 1 day at a time
+  tempTest <- test %>% filter(as.Date(date) == cutOff + i)
+  tempTest$pred <- predict(model, newdata = tempTest)
+  
+  # test to check for correct test window
+  # print(max(as.Date(tempTest$date)))
+  
+  # create design matrix
+  # [-2] drops response from formula
+  Designmat <- model.matrix(formula(model)[-2], tempTest)
+  
+  # compute XVX′ to get the variance-covariance matrix of the predictions
+  # extract the diagonal of this matrix to get variances of predictions
+  predvar <- diag(Designmat %*% vcov(model) %*% t(Designmat)) 
+  #results7$SE <- sqrt(predvar) 
+  tempTest$SE <- sqrt(predvar + model$sigma^2) # sigma is the estimated within-group error standard deviation
+  tempTest$lowerCI <- tempTest$pred - 1.96*tempTest$SE
+  tempTest$upperCI <- tempTest$pred + 1.96*tempTest$SE
+  
+  test %<>%
+    left_join(tempTest %>% select(city, date, pred, lowerCI, upperCI)
+              , by = c("date" = "date", "city" = "city"))
+   
+  if(i > 1)
+  {
+    test %<>% 
+      mutate(pred = coalesce(pred.x, pred.y)
+             , lowerCI = coalesce(lowerCI.x, lowerCI.y)
+             , upperCI = coalesce(upperCI.x, upperCI.y)
+             ) %>%
+      select(-pred.x, -pred.y
+             , -lowerCI.x, -lowerCI.y
+             , -upperCI.x, -upperCI.y)
+  }
+  
+  # bring forward predictions
+  test %<>% 
+    mutate(casesTminus1.rate =  case_when(is.na(casesTminus1.rate) ~ lag(as.numeric(pred)), TRUE ~ casesTminus1.rate)
+           , casesTminus2.rate =  case_when(is.na(casesTminus2.rate) ~ lag(as.numeric(pred), 2), TRUE ~ casesTminus2.rate)
+           )  
+}
+
+
+
+# pull all metrics into one dataframe called dailyMetrics
+metrics <- test %>% 
+    filter(as.Date(date) <= cutOff + 7) %>%
+    group_by(city) %>% 
+    summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+              , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+              , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+              ) %>%
+    left_join( test %>% 
+                 group_by(city) %>% 
+                 summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+                           , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+                           , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+                           )
+               , by = "city"
+               , suffix = c("_7d", "_14d")
+               ) %>%
+    rename_at(vars(-city), ~ paste0(modelName,.)) %>%
+    arrange(as.character(city))
+
+dailyMetrics %<>% 
+  left_join(metrics, by = "city")
+
 ```
 
-``` {r fig.width=10, fig.height=30}
 
-plotFuncLME(model = lmeLogWt
-         , forecastLength = 14)
-```
-
-
-### Naive Multiple Regression-Log
-
+## LM
 ```{r}
-lmLog <- 
-  lm( case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend
-       , data = train
-       )
+modelName <- 'lmNov_'
 
-summary(lmLog)
-```
-```{r fig.width=10, fig.height=30}
+train <- alldata.groupedR %>% 
+  filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff))
 
-output <- metricsFuncLM(model = lmLog)
-
-allMetrics <- allMetrics %>% left_join(
-    output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmLog")})
-    , by = "city"
+model <- lm(case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend,
+    data = train
     )
+summary(model)
 
-plotFuncLM(model = lmLog
-         , forecastLength = 7)
+test <- alldata.groupedR %>% 
+  filter(as.Date(date) >= startDate 
+       & as.Date(date) > cutOff
+       & as.Date(date) <= (cutOff + testRange)
+       ) %>%
+  select(city, day031620, date, weekend, case.rate, casesTminus1.rate, casesTminus2.rate) %>%
+  mutate(
+    casesTminus1.rate = case_when( mod(as.numeric(as.Date(date) - cutOff), 7) == 1 ~ casesTminus1.rate
+         , TRUE ~ as.numeric(NA))
+    , casesTminus2.rate = 
+           case_when( mod(as.numeric(as.Date(date) - cutOff), 7) %in% c(1,2) ~ casesTminus2.rate
+         , TRUE ~ as.numeric(NA))
+         )
+  
+for (i in 1:testRange)
+{
+  if(i >1 & i %% 7 == 1) # update only when predicting on 8th, 15th, etc. days
+  {
+    train <- alldata.groupedR %>% 
+      filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff - 1 + i))
 
+    model <- update(model, data = train)
+  }
+  
+  
+  tempTest <- test %>% filter(as.Date(date) == cutOff + i)
+
+  pred <- predict(model, newdata = test[i,], interval = "prediction", level = 0.95) %>% as.data.frame()
+  tempTest$pred <- pred$fit
+  tempTest$lowerCI <- pred$lwr
+  tempTest$upperCI <- pred$upr
+  
+  test %<>%
+    left_join(tempTest %>% select(city, date, pred, lowerCI, upperCI)
+              , by = c("date" = "date", "city" = "city"))
+   
+  if(i > 1)
+  {
+    test %<>% 
+      mutate(pred = coalesce(pred.x, pred.y)
+             , lowerCI = coalesce(lowerCI.x, lowerCI.y)
+             , upperCI = coalesce(upperCI.x, upperCI.y)
+             ) %>%
+      select(-pred.x, -pred.y
+             , -lowerCI.x, -lowerCI.y
+             , -upperCI.x, -upperCI.y)
+  }
+
+  # bring forward predictions
+  test %<>% 
+    mutate(casesTminus1.rate =  case_when(is.na(casesTminus1.rate) ~ lag(as.numeric(pred)), TRUE ~ casesTminus1.rate)
+           , casesTminus2.rate =  case_when(is.na(casesTminus2.rate) ~ lag(as.numeric(pred), 2), TRUE ~ casesTminus2.rate)
+           )
+  
+}
+
+metrics <- test %>% 
+    filter(as.Date(date) <= cutOff + 7) %>%
+    group_by(city) %>% 
+    summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+              , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+              , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+              ) %>%
+    left_join( test %>% 
+                 group_by(city) %>% 
+                 summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+                           , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+                           , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+                           )
+               , by = "city"
+               , suffix = c("_7d", "_14d")
+               ) %>%
+    rename_at(vars(-city), ~ paste0(modelName,.)) %>%
+    arrange(as.character(city))
+
+
+dailyMetrics %<>% 
+  left_join(metrics, by = "city")
+
+```
+
+
+
+## LME + walking
+```{r}
+
+modelName = 'lmeWalkingNov_' 
+
+train <- alldata.groupedR %>% 
+  filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff))
+
+model <- lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend + walkingMinus7,
+    random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city,
+    data = train
+    )
+summary(model)
+
+# test to hold all date data points up to testRange
+test <- alldata.groupedR %>% 
+  filter(as.Date(date) >= startDate 
+       & as.Date(date) > cutOff
+       & as.Date(date) <= (cutOff + testRange)
+       ) %>%
+  select(city, day031620, date, weekend, case.rate, casesTminus1.rate, casesTminus2.rate, walkingMinus7) %>%
+  mutate(
+    casesTminus1.rate = case_when( mod(as.numeric(as.Date(date) - cutOff), 7) == 1 ~ casesTminus1.rate
+         , TRUE ~ as.numeric(NA))
+    , casesTminus2.rate = 
+           case_when( mod(as.numeric(as.Date(date) - cutOff), 7) %in% c(1,2) ~ casesTminus2.rate
+         , TRUE ~ as.numeric(NA))
+         )
+
+
+# Predict one new observation at a time
+# For each new test, refit the model with actual observed Y
+for (i in 1:testRange)
+{
+  
+  if(i >1 & i %% 7 == 1) # update only when predicting on 8th, 15th, etc. days
+  {
+    train <- alldata.groupedR %>% 
+      filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff - 1 + i))
+
+    model <- update(model, data = train)
+  }
+  
+  # test to check correct training window
+  # print(i)
+  # print(max(as.Date(train$date)))
+  
+  # filter test set to calculate pred for only 1 day at a time
+  tempTest <- test %>% filter(as.Date(date) == cutOff + i)
+  tempTest$pred <- predict(model, newdata = tempTest)
+  
+  # test to check for correct test window
+  # print(max(as.Date(tempTest$date)))
+  
+  # create design matrix
+  # [-2] drops response from formula
+  Designmat <- model.matrix(formula(model)[-2], tempTest)
+  
+  # compute XVX′ to get the variance-covariance matrix of the predictions
+  # extract the diagonal of this matrix to get variances of predictions
+  predvar <- diag(Designmat %*% vcov(model) %*% t(Designmat)) 
+  #results7$SE <- sqrt(predvar) 
+  tempTest$SE <- sqrt(predvar + model$sigma^2) # sigma is the estimated within-group error standard deviation
+  tempTest$lowerCI <- tempTest$pred - 1.96*tempTest$SE
+  tempTest$upperCI <- tempTest$pred + 1.96*tempTest$SE
+  
+  test %<>%
+    left_join(tempTest %>% select(city, date, pred, lowerCI, upperCI)
+              , by = c("date" = "date", "city" = "city"))
+   
+  if(i > 1)
+  {
+    test %<>% 
+      mutate(pred = coalesce(pred.x, pred.y)
+             , lowerCI = coalesce(lowerCI.x, lowerCI.y)
+             , upperCI = coalesce(upperCI.x, upperCI.y)
+             ) %>%
+      select(-pred.x, -pred.y
+             , -lowerCI.x, -lowerCI.y
+             , -upperCI.x, -upperCI.y)
+  }
+  
+  # bring forward predictions
+  test %<>% 
+    mutate(casesTminus1.rate =  case_when(is.na(casesTminus1.rate) ~ lag(as.numeric(pred)), TRUE ~ casesTminus1.rate)
+           , casesTminus2.rate =  case_when(is.na(casesTminus2.rate) ~ lag(as.numeric(pred), 2), TRUE ~ casesTminus2.rate)
+           )  
+}
+
+
+
+# pull all metrics into one dataframe called dailyMetrics
+metrics <- test %>% 
+    filter(as.Date(date) <= cutOff + 7) %>%
+    group_by(city) %>% 
+    summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+              , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+              , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+              ) %>%
+    left_join( test %>% 
+                 group_by(city) %>% 
+                 summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+                           , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+                           , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+                           )
+               , by = "city"
+               , suffix = c("_7d", "_14d")
+               ) %>%
+    rename_at(vars(-city), ~ paste0(modelName,.)) %>%
+    arrange(as.character(city))
+
+dailyMetrics %<>% 
+  left_join(metrics, by = "city")
+
+```
+
+
+## LM
+```{r}
+modelName <- 'lmWalkingNov_'
+
+train <- alldata.groupedR %>% 
+  filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff))
+
+model <- lm(case.rate ~ casesTminus1.rate + casesTminus2.rate + weekend + walkingMinus7,
+    data = train
+    )
+summary(model)
+
+test <- alldata.groupedR %>% 
+  filter(as.Date(date) >= startDate 
+       & as.Date(date) > cutOff
+       & as.Date(date) <= (cutOff + testRange)
+       ) %>%
+  select(city, day031620, date, weekend, case.rate, casesTminus1.rate, casesTminus2.rate, walkingMinus7) %>%
+  mutate(
+    casesTminus1.rate = case_when( mod(as.numeric(as.Date(date) - cutOff), 7) == 1 ~ casesTminus1.rate
+         , TRUE ~ as.numeric(NA))
+    , casesTminus2.rate = 
+           case_when( mod(as.numeric(as.Date(date) - cutOff), 7) %in% c(1,2) ~ casesTminus2.rate
+         , TRUE ~ as.numeric(NA))
+         )
+  
+for (i in 1:testRange)
+{
+  if(i >1 & i %% 7 == 1) # update only when predicting on 8th, 15th, etc. days
+  {
+    train <- alldata.groupedR %>% 
+      filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff - 1 + i))
+
+    model <- update(model, data = train)
+  }
+  
+  
+  tempTest <- test %>% filter(as.Date(date) == cutOff + i)
+
+  pred <- predict(model, newdata = test[i,], interval = "prediction", level = 0.95) %>% as.data.frame()
+  tempTest$pred <- pred$fit
+  tempTest$lowerCI <- pred$lwr
+  tempTest$upperCI <- pred$upr
+  
+  test %<>%
+    left_join(tempTest %>% select(city, date, pred, lowerCI, upperCI)
+              , by = c("date" = "date", "city" = "city"))
+   
+  if(i > 1)
+  {
+    test %<>% 
+      mutate(pred = coalesce(pred.x, pred.y)
+             , lowerCI = coalesce(lowerCI.x, lowerCI.y)
+             , upperCI = coalesce(upperCI.x, upperCI.y)
+             ) %>%
+      select(-pred.x, -pred.y
+             , -lowerCI.x, -lowerCI.y
+             , -upperCI.x, -upperCI.y)
+  }
+
+  # bring forward predictions
+  test %<>% 
+    mutate(casesTminus1.rate =  case_when(is.na(casesTminus1.rate) ~ lag(as.numeric(pred)), TRUE ~ casesTminus1.rate)
+           , casesTminus2.rate =  case_when(is.na(casesTminus2.rate) ~ lag(as.numeric(pred), 2), TRUE ~ casesTminus2.rate)
+           )
+  
+}
+
+metrics <- test %>% 
+    filter(as.Date(date) <= cutOff + 7) %>%
+    group_by(city) %>% 
+    summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+              , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+              , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+              ) %>%
+    left_join( test %>% 
+                 group_by(city) %>% 
+                 summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+                           , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+                           , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+                           )
+               , by = "city"
+               , suffix = c("_7d", "_14d")
+               ) %>%
+    rename_at(vars(-city), ~ paste0(modelName,.)) %>%
+    arrange(as.character(city))
+
+
+dailyMetrics %<>% 
+  left_join(metrics, by = "city")
+
+```
+
+
+
+
+## LME-Log
+```{r}
+
+modelName = 'lmeLogNov_' 
+
+train <- alldata.groupedR %>% 
+  filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff))
+
+
+model <- lme(fixed = log(case.rate) ~ log(casesTminus1.rate) + log(casesTminus2.rate) + weekend,
+    random = ~ log(casesTminus1.rate) + log(casesTminus2.rate) - 1 | city,
+    data = train
+    , control = lmeControl(maxIter = 1e8, opt='optim') 
+    )
+summary(model)
+
+# test to hold all date data points up to testRange
+test <- alldata.groupedR %>% 
+  filter(as.Date(date) >= startDate 
+       & as.Date(date) > cutOff
+       & as.Date(date) <= (cutOff + testRange)
+       ) %>%
+  select(city, day031620, date, weekend, case.rate, casesTminus1.rate, casesTminus2.rate) %>%
+  mutate(
+    casesTminus1.rate = case_when( mod(as.numeric(as.Date(date) - cutOff), 7) == 1 ~ casesTminus1.rate
+         , TRUE ~ as.numeric(NA))
+    , casesTminus2.rate = 
+           case_when( mod(as.numeric(as.Date(date) - cutOff), 7) %in% c(1,2) ~ casesTminus2.rate
+         , TRUE ~ as.numeric(NA))
+         )
+
+
+# Predict one new observation at a time
+# For each new test, refit the model with actual observed Y
+for (i in 1:testRange)
+{
+  
+  if(i >1 & i %% 7 == 1) # update only when predicting on 8th, 15th, etc. days
+  {
+    train <- alldata.groupedR %>% 
+      filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff - 1 + i))
+
+    model <- update(model, data = train)
+  }
+  
+  # test to check correct training window
+  # print(i)
+  # print(max(as.Date(train$date)))
+  
+  # filter test set to calculate pred for only 1 day at a time
+  tempTest <- test %>% filter(as.Date(date) == cutOff + i)
+  tempTest$pred <- predict(model, newdata = tempTest)
+  
+  # test to check for correct test window
+  # print(max(as.Date(tempTest$date)))
+  
+  # create design matrix
+  # [-2] drops response from formula
+  Designmat <- model.matrix(formula(model)[-2], tempTest)
+  
+  # compute XVX′ to get the variance-covariance matrix of the predictions
+  # extract the diagonal of this matrix to get variances of predictions
+  predvar <- diag(Designmat %*% vcov(model) %*% t(Designmat)) 
+  #results7$SE <- sqrt(predvar) 
+  tempTest$SE <- sqrt(predvar + model$sigma^2) # sigma is the estimated within-group error standard deviation
+  tempTest$lowerCI <- tempTest$pred - 1.96*tempTest$SE
+  tempTest$upperCI <- tempTest$pred + 1.96*tempTest$SE
+  
+  tempTest %<>% 
+    mutate(pred = exp(pred)
+           , lowerCI = exp(lowerCI)
+           , upperCI = exp(upperCI)
+           )
+  
+  test %<>%
+    left_join(tempTest %>% select(city, date, pred, lowerCI, upperCI)
+              , by = c("date" = "date", "city" = "city"))
+   
+  if(i > 1)
+  {
+    test %<>% 
+      mutate(pred = coalesce(pred.x, pred.y)
+             , lowerCI = coalesce(lowerCI.x, lowerCI.y)
+             , upperCI = coalesce(upperCI.x, upperCI.y)
+             ) %>%
+      select(-pred.x, -pred.y
+             , -lowerCI.x, -lowerCI.y
+             , -upperCI.x, -upperCI.y)
+  }
+  
+  # bring forward predictions
+  test %<>% 
+    mutate(casesTminus1.rate =  case_when(is.na(casesTminus1.rate) ~ lag(as.numeric(pred)), TRUE ~ casesTminus1.rate)
+           , casesTminus2.rate =  case_when(is.na(casesTminus2.rate) ~ lag(as.numeric(pred), 2), TRUE ~ casesTminus2.rate)
+           )
+}
+
+
+
+# pull all metrics into one dataframe called dailyMetrics
+metrics <- test %>% 
+    filter(as.Date(date) <= cutOff + 7) %>%
+    group_by(city) %>% 
+    summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+              , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+              , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+              ) %>%
+    left_join( test %>% 
+                 group_by(city) %>% 
+                 summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+                           , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+                           , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+                           )
+               , by = "city"
+               , suffix = c("_7d", "_14d")
+               ) %>%
+    rename_at(vars(-city), ~ paste0(modelName,.)) %>%
+    arrange(as.character(city))
+
+dailyMetrics %<>% 
+  left_join(metrics, by = "city")
+
+```
+
+## LM-Log
+```{r}
+modelName <- 'lmLogNov_'
+
+train <- alldata.groupedR %>% 
+  filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff))
+
+model <- lm(log(case.rate) ~ log(casesTminus1.rate) + log(casesTminus2.rate) + weekend,
+    data = train
+    )
+summary(model)
+
+test <- alldata.groupedR %>% 
+  filter(as.Date(date) >= startDate 
+       & as.Date(date) > cutOff
+       & as.Date(date) <= (cutOff + testRange)
+       ) %>%
+  select(city, day031620, date, weekend, case.rate, casesTminus1.rate, casesTminus2.rate) %>%
+  mutate(
+    casesTminus1.rate = case_when( mod(as.numeric(as.Date(date) - cutOff), 7) == 1 ~ casesTminus1.rate
+         , TRUE ~ as.numeric(NA))
+    , casesTminus2.rate = 
+           case_when( mod(as.numeric(as.Date(date) - cutOff), 7) %in% c(1,2) ~ casesTminus2.rate
+         , TRUE ~ as.numeric(NA))
+         )
+  
+for (i in 1:testRange)
+{
+  if(i >1 & i %% 7 == 1) # update only when predicting on 8th, 15th, etc. days
+  {
+    train <- alldata.groupedR %>% 
+      filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff - 1 + i))
+
+    model <- update(model, data = train)
+  }
+  
+  
+  tempTest <- test %>% filter(as.Date(date) == cutOff + i)
+
+  pred <- predict(model, newdata = test[i,], interval = "prediction", level = 0.95) %>% as.data.frame()
+  tempTest$pred <- exp(pred$fit)
+  tempTest$lowerCI <- exp(pred$lwr)
+  tempTest$upperCI <- exp(pred$upr)
+  
+  test %<>%
+    left_join(tempTest %>% select(city, date, pred, lowerCI, upperCI)
+              , by = c("date" = "date", "city" = "city"))
+   
+  if(i > 1)
+  {
+    test %<>% 
+      mutate(pred = coalesce(pred.x, pred.y)
+             , lowerCI = coalesce(lowerCI.x, lowerCI.y)
+             , upperCI = coalesce(upperCI.x, upperCI.y)
+             ) %>%
+      select(-pred.x, -pred.y
+             , -lowerCI.x, -lowerCI.y
+             , -upperCI.x, -upperCI.y)
+  }
+
+  test %<>% 
+  mutate(casesTminus1.rate =  case_when(is.na(casesTminus1.rate) ~ lag(as.numeric(pred)), TRUE ~ casesTminus1.rate)
+         , casesTminus2.rate =  case_when(is.na(casesTminus2.rate) ~ lag(as.numeric(pred), 2), TRUE ~ casesTminus2.rate)
+         )
+  
+}
+
+metrics <- test %>% 
+    filter(as.Date(date) <= cutOff + 7) %>%
+    group_by(city) %>% 
+    summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+              , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+              , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+              ) %>%
+    left_join( test %>% 
+                 group_by(city) %>% 
+                 summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+                           , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+                           , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+                           )
+               , by = "city"
+               , suffix = c("_7d", "_14d")
+               ) %>%
+    rename_at(vars(-city), ~ paste0(modelName,.)) %>%
+    arrange(as.character(city))
+
+
+dailyMetrics %<>% 
+  left_join(metrics, by = "city")
+
+```
+
+
+
+## LME-Log + Walking
+```{r}
+
+modelName = 'lmeLogWalkingNov_' 
+
+train <- alldata.groupedR %>% 
+  filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff))
+
+
+model <- lme(fixed = log(case.rate) ~ log(casesTminus1.rate) + log(casesTminus2.rate) + weekend + walkingMinus7,
+    random = ~ log(casesTminus1.rate) + log(casesTminus2.rate) - 1 | city,
+    data = train
+    , control = lmeControl(maxIter = 1e8, opt='optim') 
+    )
+summary(model)
+
+# test to hold all date data points up to testRange
+test <- alldata.groupedR %>% 
+  filter(as.Date(date) >= startDate 
+       & as.Date(date) > cutOff
+       & as.Date(date) <= (cutOff + testRange)
+       ) %>%
+  select(city, day031620, date, weekend, case.rate, casesTminus1.rate, casesTminus2.rate, walkingMinus7) %>%
+  mutate(
+    casesTminus1.rate = case_when( mod(as.numeric(as.Date(date) - cutOff), 7) == 1 ~ casesTminus1.rate
+         , TRUE ~ as.numeric(NA))
+    , casesTminus2.rate = 
+           case_when( mod(as.numeric(as.Date(date) - cutOff), 7) %in% c(1,2) ~ casesTminus2.rate
+         , TRUE ~ as.numeric(NA))
+         )
+
+
+# Predict one new observation at a time
+# For each new test, refit the model with actual observed Y
+for (i in 1:testRange)
+{
+  
+  if(i >1 & i %% 7 == 1) # update only when predicting on 8th, 15th, etc. days
+  {
+    train <- alldata.groupedR %>% 
+      filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff - 1 + i))
+
+    model <- update(model, data = train)
+  }
+  
+  # test to check correct training window
+  # print(i)
+  # print(max(as.Date(train$date)))
+  
+  # filter test set to calculate pred for only 1 day at a time
+  tempTest <- test %>% filter(as.Date(date) == cutOff + i)
+  tempTest$pred <- predict(model, newdata = tempTest)
+  
+  # test to check for correct test window
+  # print(max(as.Date(tempTest$date)))
+  
+  # create design matrix
+  # [-2] drops response from formula
+  Designmat <- model.matrix(formula(model)[-2], tempTest)
+  
+  # compute XVX′ to get the variance-covariance matrix of the predictions
+  # extract the diagonal of this matrix to get variances of predictions
+  predvar <- diag(Designmat %*% vcov(model) %*% t(Designmat)) 
+  #results7$SE <- sqrt(predvar) 
+  tempTest$SE <- sqrt(predvar + model$sigma^2) # sigma is the estimated within-group error standard deviation
+  tempTest$lowerCI <- tempTest$pred - 1.96*tempTest$SE
+  tempTest$upperCI <- tempTest$pred + 1.96*tempTest$SE
+  
+  tempTest %<>% 
+    mutate(pred = exp(pred)
+           , lowerCI = exp(lowerCI)
+           , upperCI = exp(upperCI)
+           )
+  
+  test %<>%
+    left_join(tempTest %>% select(city, date, pred, lowerCI, upperCI)
+              , by = c("date" = "date", "city" = "city"))
+   
+  if(i > 1)
+  {
+    test %<>% 
+      mutate(pred = coalesce(pred.x, pred.y)
+             , lowerCI = coalesce(lowerCI.x, lowerCI.y)
+             , upperCI = coalesce(upperCI.x, upperCI.y)
+             ) %>%
+      select(-pred.x, -pred.y
+             , -lowerCI.x, -lowerCI.y
+             , -upperCI.x, -upperCI.y)
+  }
+  
+  # bring forward predictions
+  test %<>% 
+    mutate(casesTminus1.rate =  case_when(is.na(casesTminus1.rate) ~ lag(as.numeric(pred)), TRUE ~ casesTminus1.rate)
+           , casesTminus2.rate =  case_when(is.na(casesTminus2.rate) ~ lag(as.numeric(pred), 2), TRUE ~ casesTminus2.rate)
+           )
+}
+
+
+
+# pull all metrics into one dataframe called dailyMetrics
+metrics <- test %>% 
+    filter(as.Date(date) <= cutOff + 7) %>%
+    group_by(city) %>% 
+    summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+              , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+              , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+              ) %>%
+    left_join( test %>% 
+                 group_by(city) %>% 
+                 summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+                           , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+                           , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+                           )
+               , by = "city"
+               , suffix = c("_7d", "_14d")
+               ) %>%
+    rename_at(vars(-city), ~ paste0(modelName,.)) %>%
+    arrange(as.character(city))
+
+dailyMetrics %<>% 
+  left_join(metrics, by = "city")
+
+```
+
+## LM-Log + Walking
+```{r}
+modelName <- 'lmLogWalkingNov_'
+
+train <- alldata.groupedR %>% 
+  filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff))
+
+model <- lm(log(case.rate) ~ log(casesTminus1.rate) + log(casesTminus2.rate) + weekend + walkingMinus7,
+    data = train
+    )
+summary(model)
+
+test <- alldata.groupedR %>% 
+  filter(as.Date(date) >= startDate 
+       & as.Date(date) > cutOff
+       & as.Date(date) <= (cutOff + testRange)
+       ) %>%
+  select(city, day031620, date, weekend, case.rate, casesTminus1.rate, casesTminus2.rate, walkingMinus7) %>%
+  mutate(
+    casesTminus1.rate = case_when( mod(as.numeric(as.Date(date) - cutOff), 7) == 1 ~ casesTminus1.rate
+         , TRUE ~ as.numeric(NA))
+    , casesTminus2.rate = 
+           case_when( mod(as.numeric(as.Date(date) - cutOff), 7) %in% c(1,2) ~ casesTminus2.rate
+         , TRUE ~ as.numeric(NA))
+         )
+  
+for (i in 1:testRange)
+{
+  if(i >1 & i %% 7 == 1) # update only when predicting on 8th, 15th, etc. days
+  {
+    train <- alldata.groupedR %>% 
+      filter(as.Date(date) >= startDate & as.Date(date) <= (cutOff - 1 + i))
+
+    model <- update(model, data = train)
+  }
+  
+  
+  tempTest <- test %>% filter(as.Date(date) == cutOff + i)
+
+  pred <- predict(model, newdata = test[i,], interval = "prediction", level = 0.95) %>% as.data.frame()
+  tempTest$pred <- exp(pred$fit)
+  tempTest$lowerCI <- exp(pred$lwr)
+  tempTest$upperCI <- exp(pred$upr)
+  
+  test %<>%
+    left_join(tempTest %>% select(city, date, pred, lowerCI, upperCI)
+              , by = c("date" = "date", "city" = "city"))
+   
+  if(i > 1)
+  {
+    test %<>% 
+      mutate(pred = coalesce(pred.x, pred.y)
+             , lowerCI = coalesce(lowerCI.x, lowerCI.y)
+             , upperCI = coalesce(upperCI.x, upperCI.y)
+             ) %>%
+      select(-pred.x, -pred.y
+             , -lowerCI.x, -lowerCI.y
+             , -upperCI.x, -upperCI.y)
+  }
+
+  test %<>% 
+  mutate(casesTminus1.rate =  case_when(is.na(casesTminus1.rate) ~ lag(as.numeric(pred)), TRUE ~ casesTminus1.rate)
+         , casesTminus2.rate =  case_when(is.na(casesTminus2.rate) ~ lag(as.numeric(pred), 2), TRUE ~ casesTminus2.rate)
+         )
+  
+}
+
+metrics <- test %>% 
+    filter(as.Date(date) <= cutOff + 7) %>%
+    group_by(city) %>% 
+    summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+              , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+              , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+              ) %>%
+    left_join( test %>% 
+                 group_by(city) %>% 
+                 summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+                           , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+                           , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+                           )
+               , by = "city"
+               , suffix = c("_7d", "_14d")
+               ) %>%
+    rename_at(vars(-city), ~ paste0(modelName,.)) %>%
+    arrange(as.character(city))
+
+
+dailyMetrics %<>% 
+  left_join(metrics, by = "city")
 
 ```
 
@@ -1415,64 +1988,65 @@ plotFuncLM(model = lmLog
 
 
 
-## Metrics for Mar-Aug
-``` {r}
 
-allMetrics %>% select(city, starts_with("MAPE_7d")) %>%
-  arrange(as.character(city)) %>%
-  as.data.frame() %>%
-  format(scientific = F) %>%
-  print()
+# Metrics
+```{r}
+print(dailyMetrics %>% as.data.frame())
 
-```
-
-``` {r}
-
-allMetrics %>% select(city, starts_with("MAE_7d")) %>%
-  arrange(as.character(city)) %>% 
-  as.data.frame() %>%
-  print()
-
-```
-
-``` {r}
-
-allMetrics %>% select(city, starts_with("CP_7d")) %>%
-  arrange(as.character(city)) %>%
-  as.data.frame() %>%
-  print()
-
+write.csv(dailyMetrics
+          , file = paste0(rstudioapi::selectDirectory(), '/dailyMetrics.csv'))
 ```
 
 
 
-``` {r}
 
-allMetrics %>% select(city, starts_with("MAPE_14d")) %>%
-  arrange(as.character(city)) %>%
-  as.data.frame() %>%
-  format(scientific = F) %>%
-  print()
 
-```
 
-``` {r}
 
-allMetrics %>% select(city, starts_with("MAE_14d")) %>%
-  arrange(as.character(city)) %>% 
-  as.data.frame() %>%
-  print()
 
-```
 
-``` {r}
 
-allMetrics %>% select(city, starts_with("CP_14d")) %>%
-  arrange(as.character(city)) %>%
-  as.data.frame() %>%
-  print()
 
-```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
