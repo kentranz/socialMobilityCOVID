@@ -231,7 +231,7 @@ startDate <- as.Date('2020-03-22')
 ```{r}
 cutOff <- as.Date("2020-08-31")
 
-testRange <- 14
+testRange <- 30
 
 ```
 
@@ -1119,9 +1119,9 @@ dailyMetrics %<>%
 
 ## Data partition
 ```{r}
-cutOff <- as.Date("2020-11-30")
+cutOff <- as.Date("2020-11-14")
 
-testRange <- 14
+testRange <- 30
 
 ```
 
@@ -1994,7 +1994,8 @@ dailyMetrics %<>%
 print(dailyMetrics %>% as.data.frame())
 
 write.csv(dailyMetrics
-          , file = paste0(rstudioapi::selectDirectory(), '/dailyMetrics.csv'))
+          , file = paste0('/Users/kentran/Documents/PhD/senMovement/socialMobilityCOVID/results'
+                          , '/dailyMetrics.csv'))
 ```
 
 
