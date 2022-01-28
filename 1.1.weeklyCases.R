@@ -3,7 +3,7 @@
 ####################################################
 
 start <- as.Date('2020-03-01') # starts on Sunday
-end <- as.Date('2020-12-12') # ends on Saturday
+end <- as.Date('2022-01-15') # ends on Saturday
 
 
 weeklyCases <- all %>%
