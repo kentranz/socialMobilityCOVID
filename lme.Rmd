@@ -357,6 +357,14 @@ metrics <- test %>%
 
 dailyMetrics <- metrics
 
+
+
+testAug <- test %>%
+  rename_at(vars(pred, lowerCI, upperCI), ~paste0(modelName, .))
+  
+
+
+
 ```
 
 
@@ -451,6 +459,12 @@ metrics <- test %>%
 
 dailyMetrics %<>% 
   left_join(metrics, by = "city")
+
+
+
+testAug %<>% 
+  left_join(test %>% select(city, date, pred, lowerCI, upperCI), by = c("city", "date") ) %>%
+  rename_at(vars(pred, lowerCI, upperCI), ~paste0(modelName, .))
 
 ```
 
@@ -579,6 +593,12 @@ metrics <- test %>%
 dailyMetrics %<>% 
   left_join(metrics, by = "city")
 
+
+testAug %<>% 
+  left_join(test %>% select(city, date, pred, lowerCI, upperCI), by = c("city", "date") ) %>%
+  rename_at(vars(pred, lowerCI, upperCI), ~paste0(modelName, .))
+
+
 ```
 
 
@@ -673,6 +693,12 @@ metrics <- test %>%
 
 dailyMetrics %<>% 
   left_join(metrics, by = "city")
+
+
+testAug %<>% 
+  left_join(test %>% select(city, date, pred, lowerCI, upperCI), by = c("city", "date") ) %>%
+  rename_at(vars(pred, lowerCI, upperCI), ~paste0(modelName, .))
+
 
 ```
 
@@ -800,6 +826,11 @@ metrics <- test %>%
 dailyMetrics %<>% 
   left_join(metrics, by = "city")
 
+
+testAug %<>% 
+  left_join(test %>% select(city, date, pred, lowerCI, upperCI), by = c("city", "date") ) %>%
+  rename_at(vars(pred, lowerCI, upperCI), ~paste0(modelName, .))
+
 ```
 
 ## LM-Log
@@ -891,6 +922,13 @@ metrics <- test %>%
 
 dailyMetrics %<>% 
   left_join(metrics, by = "city")
+
+
+testAug %<>% 
+  left_join(test %>% select(city, date, pred, lowerCI, upperCI), by = c("city", "date") ) %>%
+  rename_at(vars(pred, lowerCI, upperCI), ~paste0(modelName, .))
+
+
 
 ```
 
@@ -1015,6 +1053,13 @@ metrics <- test %>%
 dailyMetrics %<>% 
   left_join(metrics, by = "city")
 
+
+testAug %<>% 
+  left_join(test %>% select(city, date, pred, lowerCI, upperCI), by = c("city", "date") ) %>%
+  rename_at(vars(pred, lowerCI, upperCI), ~paste0(modelName, .))
+
+
+
 ```
 
 ## LM-Log + Walking
@@ -1106,6 +1151,15 @@ metrics <- test %>%
 
 dailyMetrics %<>% 
   left_join(metrics, by = "city")
+
+
+
+testAug %<>% 
+  left_join(test %>% select(city, date, pred, lowerCI, upperCI), by = c("city", "date") ) %>%
+  rename_at(vars(pred, lowerCI, upperCI), ~paste0(modelName, .))
+
+write.csv(testAug
+          , file = '/Users/kentran/Documents/PhD/senMovement/socialMobilityCOVID/results/testAug.csv')
 
 ```
 
@@ -1239,6 +1293,11 @@ metrics <- test %>%
 dailyMetrics %<>% 
   left_join(metrics, by = "city")
 
+
+
+testNov <- test %>%
+  rename_at(vars(pred, lowerCI, upperCI), ~paste0(modelName, .))
+
 ```
 
 
@@ -1332,6 +1391,11 @@ metrics <- test %>%
 
 dailyMetrics %<>% 
   left_join(metrics, by = "city")
+
+
+testNov %<>% 
+  left_join(test %>% select(city, date, pred, lowerCI, upperCI), by = c("city", "date") ) %>%
+  rename_at(vars(pred, lowerCI, upperCI), ~paste0(modelName, .))
 
 ```
 
@@ -1451,6 +1515,10 @@ metrics <- test %>%
 dailyMetrics %<>% 
   left_join(metrics, by = "city")
 
+testNov %<>% 
+  left_join(test %>% select(city, date, pred, lowerCI, upperCI), by = c("city", "date") ) %>%
+  rename_at(vars(pred, lowerCI, upperCI), ~paste0(modelName, .))
+
 ```
 
 
@@ -1545,6 +1613,10 @@ metrics <- test %>%
 dailyMetrics %<>% 
   left_join(metrics, by = "city")
 
+
+testNov %<>% 
+  left_join(test %>% select(city, date, pred, lowerCI, upperCI), by = c("city", "date") ) %>%
+  rename_at(vars(pred, lowerCI, upperCI), ~paste0(modelName, .))
 ```
 
 
@@ -1672,6 +1744,11 @@ metrics <- test %>%
 dailyMetrics %<>% 
   left_join(metrics, by = "city")
 
+
+testNov %<>% 
+  left_join(test %>% select(city, date, pred, lowerCI, upperCI), by = c("city", "date") ) %>%
+  rename_at(vars(pred, lowerCI, upperCI), ~paste0(modelName, .))
+
 ```
 
 ## LM-Log
@@ -1763,6 +1840,11 @@ metrics <- test %>%
 
 dailyMetrics %<>% 
   left_join(metrics, by = "city")
+
+
+testNov %<>% 
+  left_join(test %>% select(city, date, pred, lowerCI, upperCI), by = c("city", "date") ) %>%
+  rename_at(vars(pred, lowerCI, upperCI), ~paste0(modelName, .))
 
 ```
 
@@ -1890,6 +1972,11 @@ metrics <- test %>%
 dailyMetrics %<>% 
   left_join(metrics, by = "city")
 
+
+testNov %<>% 
+  left_join(test %>% select(city, date, pred, lowerCI, upperCI), by = c("city", "date") ) %>%
+  rename_at(vars(pred, lowerCI, upperCI), ~paste0(modelName, .))
+
 ```
 
 ## LM-Log + Walking
@@ -1981,6 +2068,15 @@ metrics <- test %>%
 
 dailyMetrics %<>% 
   left_join(metrics, by = "city")
+
+
+
+testNov %<>% 
+  left_join(test %>% select(city, date, pred, lowerCI, upperCI), by = c("city", "date") ) %>%
+  rename_at(vars(pred, lowerCI, upperCI), ~paste0(modelName, .))
+
+write.csv(testNov
+          , file = '/Users/kentran/Documents/PhD/senMovement/socialMobilityCOVID/results/testNov.csv')
 
 ```
 

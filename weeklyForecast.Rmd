@@ -16,1123 +16,126 @@ knitr::opts_chunk$set(echo = TRUE)
 library(ggplot2)
 library(tidyverse)
 library(nlme)
-library(RCurl)
+library(magrittr)
+
 
 rm(list = ls())
 ```
-
-
-# Automate extracting 95% CI for prediction band, metrics, and plotting
-
-Predict one day at a time, feedforward the prediction as lag case.rate. 
-
-```{r forecastFunc}
-
-forecastLME <- function(model, test) # provide model obj and test set
-{
-  for (i in 1:nrow(test))
-  {
-    
-    pred <- predict(model, newdata = test[i,])
-    test[i, 'pred'] <- pred
-    
-    # if second day or later, use pred case.rate as lag-1
-    if ( i <= (nrow(test)-1) & as.Date(test[i+1,'date']) > cutOff+1)
-    {
-      test[i+1, 'casesTminus1.rate'] <- pred
-    }
-    
-    # if third day or later, use pred case.rate as lag-2
-    if (i <= (nrow(test)-2) & as.Date(test[i+2,'date']) > (cutOff + 2))
-    {
-      test[i+2, 'casesTminus2.rate'] <- pred
-    }
-  
-  }
-  
-  return(test)
-}
-
-#forecast(model = case.rate.lme20201031
-#         , test = test14
-#         )
-
-```
-
-
-Extract 95% CI for prediction band. References from the web:
-
-- https://stackoverflow.com/questions/14358811/extract-prediction-band-from-lme-fit and 
-- http://bbolker.github.io/mixedmodels-misc/glmmFAQ.html#predictions-andor-confidence-or-prediction-intervals-on-predictions
-
-SE: This approach takes into account the uncertainty of the random effect in the prediction. 
-
-SE2: This takes into account both random effect uncertainty and within-group error
-
-
-
-``` {r resultsFunc}
-#model <- case.rate.lme20201031
-
-metricsFuncLME <- function(model)
-{
-  results7 <- forecastLME(model, test = test7)
-  
-  # create design mateix
-  # [-2] drops response from formula
-  Designmat <- model.matrix(formula(model)[-2], results7)
-  
-  # compute XVX′ to get the variance-covariance matrix of the predictions
-  # extract the diagonal of this matrix to get variances of predictions
-  predvar <- diag(Designmat %*% vcov(model) %*% t(Designmat)) 
-  results7$SE <- sqrt(predvar) 
-  results7$SE2 <- sqrt(predvar + model$sigma^2) # sigma is the estimated within-group error standard deviation
-  
-  
-  results14 <- forecastLME(model, test = test14)
-  
-  Designmat <- model.matrix(formula(model)[-2], results14)
-  predvar <- diag(Designmat %*% vcov(model) %*% t(Designmat)) 
-  results14$SE <- sqrt(predvar) 
-  results14$SE2 <- sqrt(predvar + model$sigma^2)
-
-
-  # CALCULATE MAE, MAPE, CP
-  perform7 <- results7 %>% 
-  group_by(city) %>% 
-  summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
-            , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
-            , CP = round(sum(case.rate >= (pred - 1.96*SE2) & case.rate <= (pred + 1.96*SE2) ) / n() , 2)
-            ) #%>%
-  #as.data.frame() %>%
-  #print()
-
-
-  perform14 <- results14 %>% 
-    group_by(city) %>% 
-    summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
-              , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
-              , CP = round(sum(case.rate >= (pred - 1.96*SE2) & case.rate <= (pred + 1.96*SE2) ) / n() , 2)
-              ) #%>%
-    #as.data.frame() %>%
-    #print()
-  
-  metrics <- perform7 %>%
-    left_join(perform14 
-              , by = "city"
-              , suffix = c("_7d", "_14d")
-              ) #%>%
-    #as.data.frame() %>%
-    #print()
-  
-  return(list(performMetrics = metrics
-              , results7 = results7
-              , results14 = results14))
-}
-
-
-
-
-plotFuncLME <- function(model
-                     , forecastLength # only 7 or 14 as numeric arg
-                     )
-{
-  
-  if(forecastLength == 7)
-  { results = output$results7
-    
-    perform <- output$performMetrics %>% 
-      select(city, contains("7d"))
-  }
-  
-  if(forecastLength == 14)
-  { results = output$results14
-    
-    perform <- output$performMetrics %>% 
-      select(city, contains("14d")) 
-  }
-  
-  perform <- setNames(perform, gsub("_.*", "", names(perform)))
-  
-  perform <- perform %>%
-    mutate(MAPE = paste0("MAPE = ", MAPE)
-                      , MAE = paste0("MAE = ", MAE)
-                      , CP = paste0("CP = ", CP)
-                      )
-  
-  
-  Designmat <- model.matrix(formula(model)[-2], train)
-  predvar <- diag(Designmat %*% vcov(model) %*% t(Designmat)) 
-  
-  plotDF <- train %>% 
-    select(city, weekNum, case.rate) %>%
-    mutate(city = as.character(city)
-           , SE2 = sqrt(predvar + model$sigma^2)
-           , upperCI.fitted = case.rate + 1.96*SE2
-           , lowerCI.fitted = case.rate - 1.96*SE2
-           , fitted = predict(model, data = train)
-           ) %>%
-    reshape::melt(id = c('city', 'weekNum')) %>%
-    
-    # bring into forecasted case rates
-    rbind(results %>% 
-            select(city, weekNum, case.rate, pred, SE2) %>% 
-            #rename(case.rate = pred) %>% 
-            mutate(upperCI.pred = pred + 1.96*SE2
-                   , lowerCI.pred = pred - 1.96*SE2
-                   ) %>%
-            reshape2::melt(id = c('city', 'weekNum'))
-          ) 
-      
-  
-  p <- ggplot(plotDF 
-              , aes(weekNum, value, group = variable, colour = variable)) +
-    
-    geom_line(data = filter(plotDF, variable == 'case.rate'), linetype = "solid", color = 'black', alpha = 0.6) + 
-    geom_line(data = filter(plotDF, variable == 'fitted'), linetype = "solid", color = 'red') +
-    geom_line(data = filter(plotDF, variable == 'pred'), linetype = "solid", color = 'blue') +
-    
-    # uncertainty band for fitted model
-    geom_ribbon(data = filter(plotDF, variable == 'lowerCI.fitted')
-      , aes(ymin = filter(plotDF, variable == 'lowerCI.fitted')$value
-                    , ymax =  filter(plotDF, variable == 'upperCI.fitted')$value
-                    )
-                , alpha = 0.3
-                , color = NA
-                , fill = "red") +
-    
-    # prediction band for forecast
-    geom_ribbon(data = filter(plotDF, variable == 'lowerCI.pred')
-      , aes(ymin = filter(plotDF, variable == 'lowerCI.pred')$value
-                    , ymax =  filter(plotDF, variable == 'upperCI.pred')$value
-                    )
-                , alpha = 0.3
-                , color = NA
-                , fill = "blue") +
-    
-    facet_wrap(. ~ city, ncol = 2) +
-    ggtitle(paste0('Forecast ', forecastLength, ' Days')) +
-    ylab('Case Rate per 100,000 People') +
-    xlab('Days since March 16, 2020') +
-    #ylim(-15,100) +
-    
-    # add performance metrics
-    geom_label(data = perform 
-               , aes(label = MAPE), 
-              x = 0, y = max(abs(filter(plotDF, variable == 'case.rate')$value)), hjust="inward", vjust="inward",
-              inherit.aes = FALSE) +
-    geom_label(data = perform 
-               , aes(label = MAE), 
-              x = 0, y = max(abs(filter(plotDF, variable == 'case.rate')$value))*4/5, hjust="inward", vjust="inward",
-              inherit.aes = FALSE) +
-    geom_label(data = perform 
-                , aes(label = CP), 
-               x = 0, y = max(abs(filter(plotDF, variable == 'case.rate')$value))*2/5, hjust="inward", vjust="inward",
-               inherit.aes = FALSE) +
-     
-    theme_classic() +
-    theme(legend.position = 'none') 
-    
-  p
-}
-
-```
-
-
-# Naive Multiple Regression
-
-Automate some functions specific to LM object
-```{r}
-forecastLM <- function(model, test) # provide model obj and test set
-{
-  for (i in 1:nrow(test))
-  {
-    
-    pred <- predict(model, newdata = test[i,], interval = "prediction", level = 0.95) %>% as.data.frame()
-    test[i, 'pred'] <- pred$fit
-    test[i, 'lowerCI'] <- pred$lwr
-    test[i, 'upperCI'] <- pred$upr
-    
-    
-    # if second day or later, use pred case.rate as lag-1
-    if ( i <= (nrow(test)-1) & as.Date(test[i+1,'date']) > cutOff+1)
-    {
-      test[i+1, 'casesTminus1.rate'] <- pred$fit
-    }
-    
-    # if third day or later, use pred case.rate as lag-2
-    if (i <= (nrow(test)-2) & as.Date(test[i+2,'date']) > (cutOff + 2))
-    {
-      test[i+2, 'casesTminus2.rate'] <- pred$fit
-    }
-  
-  }
-  
-  return(test)
-}
-
-# 
-# 
-# temp <- forecastLM(model = case.rate.lm
-#         , test = test14
-#         )
-
-
-metricsFuncLM <- function(model)
-{
-  results7 <- forecastLM(model, test = test7)
-  
-  results14 <- forecastLM(model, test = test14)
-  
-  metrics <- results7 %>% 
-    group_by(city) %>% 
-    summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
-              , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
-              , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
-              ) %>%
-    left_join( results14 %>% 
-                 group_by(city) %>% 
-                 summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
-                           , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
-                           , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
-                           )
-               , by = "city"
-               , suffix = c("_7d", "_14d")
-               ) 
-  
-  return(list(performMetrics = metrics
-              , results7 = results7
-              , results14 = results14))
-}
-
-
-
-
-plotFuncLM <- function(model, forecastLength)
-{
-  
-  
-  if(forecastLength == 7)
-  { results = output$results7
-    
-    metrics <- output$performMetrics %>% 
-      select(city, contains("7d"))
-  }
-  
-  if(forecastLength == 14)
-  { results = output$results14
-    
-    metrics <- output$performMetrics %>% 
-      select(city, contains("14d")) 
-  }
-  
-  metrics <- setNames(metrics, gsub("_.*", "", names(metrics)))
-
-  pred <- predict(model, newdata = train, interval = "prediction", level = 0.95)
-
-  plotDF <- train %>% 
-    select(city, day031620, case.rate) %>%
-    mutate(city = as.character(city)) %>%
-    cbind(pred) %>%
-    rename(fitted = fit
-           , lowerCI.fitted = lwr
-           , upperCI.fitted = upr
-           ) %>%
-    reshape::melt(id = c('city', 'day031620')) %>%
-    
-    # bring into forecasted case rates
-    rbind(results %>% 
-            select(city, day031620, case.rate, pred, upperCI, lowerCI) %>% 
-            rename(upperCI.pred = upperCI
-                   , lowerCI.pred = lowerCI
-                   ) %>%
-            reshape2::melt(id = c('city', 'day031620'))
-          ) 
-      
-  
-  p <- ggplot(plotDF 
-              , aes(day031620, value, group = variable, colour = variable)) +
-    
-    geom_line(data = filter(plotDF, variable == 'case.rate'), linetype = "solid", color = 'black', alpha = 0.6) + 
-    geom_line(data = filter(plotDF, variable == 'fitted'), linetype = "solid", color = 'red') +
-    geom_line(data = filter(plotDF, variable == 'pred'), linetype = "solid", color = 'blue') +
-    
-    # uncertainty band for fitted model
-    geom_ribbon(data = filter(plotDF, variable == 'lowerCI.fitted')
-      , aes(ymin = filter(plotDF, variable == 'lowerCI.fitted')$value
-                    , ymax =  filter(plotDF, variable == 'upperCI.fitted')$value
-                    )
-                , alpha = 0.3, color = NA
-                , fill = "red") +
-    
-    # prediction band for forecast
-    geom_ribbon(data = filter(plotDF, variable == 'lowerCI.pred')
-      , aes(ymin = filter(plotDF, variable == 'lowerCI.pred')$value
-                    , ymax =  filter(plotDF, variable == 'upperCI.pred')$value
-                    )
-                , alpha = 0.3, color = NA
-                , fill = "blue") +
-    
-    facet_wrap(. ~ city, ncol = 2) +
-    ggtitle('Forecast 7 Days') +
-    ylab('Case Rate per 100,000 People') +
-    xlab('Days since March 16, 2020') +
-    #ylim(-15,100) +
-    
-    # add performance metrics
-    geom_label(data = metrics %>% mutate(MAPE = paste0("MAPE = ", MAPE))
-               , aes(label = MAPE), 
-              x = 0, y = max(abs(filter(plotDF, variable == 'case.rate')$value)), hjust="inward", vjust="inward",
-              inherit.aes = FALSE) +
-    geom_label(data = metrics %>% mutate(MAE = paste0("MAE = ", MAE))
-               , aes(label = MAE),
-              x = 0, y = max(abs(filter(plotDF, variable == 'case.rate')$value))*4/5, hjust="inward", vjust="inward",
-              inherit.aes = FALSE) +
-    geom_label(data = metrics %>% mutate(CP = paste0("CP = ", CP))
-                , aes(label = CP),
-               x = 0, y = max(abs(filter(plotDF, variable == 'case.rate')$value))*3/5, hjust="inward", vjust="inward",
-               inherit.aes = FALSE) +
-
-    theme_classic() +
-    theme(legend.position = 'none') 
-  
-  
-  p
-}
-
-```
-
-
-# Mar-Nov
-``` {r}
-
-weeklyCases <- read.csv('https://raw.githubusercontent.com/kentranz/socialMobilityCOVID/master/data/weeklyCases.csv')
-
-cutOff <- as.Date("2020-11-29")
-
-train <- weeklyCases %>% 
-  filter(weekNum > 3 & as.Date(date) < cutOff)
-
-
-test7 <- weeklyCases %>% 
-   filter(weekNum > 3 & as.Date(date) >= cutOff & weekNum < 41)
-
-  
-test14 <- weeklyCases %>% 
-  filter(weekNum > 3 & as.Date(date) >= cutOff) %>%
-  
-  # retained lag case rates for first week only, zero out the rest
-  mutate(
-    casesTminus2.rate = case_when(weekNum == 41 ~ 0, TRUE ~ casesTminus2.rate)
-  )
-
-
-nrow(train)
-nrow(test7)
-nrow(test14)
-```
-
-
-
-## LME
-``` {r}
-
-lme <- 
-  lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate,
-      random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city,
-      data = train
-      )
-
-summary(lme)
-
-```
-
-
-``` {r fig.width=10, fig.height=30}
-
-output <- metricsFuncLME(model = lme)
-
-allMetrics <- output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lme")})
-
-
-```
-
-## LME weighted
-
-```{r }
-lmeWt <- 
-  lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate
-      , random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city
-      , data = train
-      , weights = varPower(form = ~ fitted(.))
-      , control = lmeControl(maxIter = 1e4) 
-      )
-
-summary(lmeWt)
-
-output <- metricsFuncLME(model = lmeWt)
-
-allMetrics <- allMetrics %>% left_join(
-    output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmeWt")})
-    , by = "city"
-    )
-
-```
-
-
-
-## Multiple Regression
-```{r}
-lm <- 
-  lm( case.rate ~ casesTminus1.rate + casesTminus2.rate
-       , data = train
-       )
-
-summary(lm)
-```
-```{r fig.width=10, fig.height=30}
-
-output <- metricsFuncLM(model = lm)
-
-allMetrics <- allMetrics %>% left_join(
-    output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lm")})
-    , by = "city"
-    )
-```
-
-## LME + Testing Near Me
-
-```{r }
-lmeTest <- 
-  lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate + testingNearMe
-      , random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city
-      , data = train
-      )
-
-summary(lmeTest)
-
-output <- metricsFuncLME(model = lmeTest)
-
-allMetrics <- allMetrics %>% left_join(
-    output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmeTest")})
-    , by = "city"
-    )
-
-```
-
-## Multiple Regression + Testing Near Me
-```{r}
-lmTest <- 
-  lm( case.rate ~ casesTminus1.rate + casesTminus2.rate + testingNearMe
-       , data = train
-       )
-
-summary(lmTest)
-```
-```{r fig.width=10, fig.height=30}
-
-output <- metricsFuncLM(model = lmTest)
-
-allMetrics <- allMetrics %>% left_join(
-    output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmTest")})
-    , by = "city"
-    )
-```
-
-
-## Log-transformed
-
-```{r}
-
-train <- train %>% 
-  mutate(case.rate = log(case.rate)
-         , casesTminus1.rate = case_when(casesTminus1.rate != 0 ~ log(casesTminus1.rate)
-                                         , TRUE ~ 0.000000001)
-         , casesTminus2.rate = case_when(casesTminus2.rate != 0 ~ log(casesTminus2.rate)
-                                         , TRUE ~ 0.000000001)
-         )
-
-test7 <- test7  %>% 
-  mutate(case.rate = log(case.rate)
-         , casesTminus1.rate = case_when(casesTminus1.rate != 0 ~ log(casesTminus1.rate)
-                                         , TRUE ~ 0.000000001)
-         , casesTminus2.rate = case_when(casesTminus2.rate != 0 ~ log(casesTminus2.rate)
-                                         , TRUE ~ 0.000000001)
-         )
-         
-
-test14 <- test14  %>% 
-  mutate(case.rate = log(case.rate)
-         , casesTminus1.rate = case_when(casesTminus1.rate != 0 ~ log(casesTminus1.rate)
-                                         , TRUE ~ 0.000000001)
-         , casesTminus2.rate = case_when(casesTminus2.rate != 0 ~ log(casesTminus2.rate)
-                                         , TRUE ~ 0.000000001)
-         )
-```
-## LME-Log
-NOT CONVERGING - TBD
-
-<!-- ```{r } -->
-<!-- lmeLog <- -->
-<!--   lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate -->
-<!--       , random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city -->
-<!--       , data = train -->
-<!--       , control = lmeControl(maxIter = 1e8) -->
-<!--       ) -->
-
-<!-- summary(lmeLog) -->
-
-<!-- output <- metricsFuncLME(model = lmeLog) -->
-
-<!-- allMetrics <- allMetrics %>% left_join( -->
-<!--     output$performMetrics %>% -->
-<!--       rename_at(vars(-city), function(x) {paste0(x, "_lmeLog")}) -->
-<!--     , by = "city" -->
-<!--     ) -->
-
-<!-- ``` -->
-
-
-## LME-Log weighted residual
-```{r}
-lmeLogWt <- 
-  lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate
-      , random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city
-      , data = train
-      , weights = varPower(form = ~ fitted(.))
-      , control = lmeControl(maxIter = 1e4) 
-      )
-
-summary(lmeLogWt)
-```
-``` {r fig.width=10, fig.height=30}
-
-output <- metricsFuncLME(model = lmeLogWt)
-
-allMetrics <- allMetrics %>% left_join(
-    output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmeLogWt")})
-    , by = "city"
-    )
-```
-
-
-## Multiple Regression
-```{r}
-lmLog <- 
-  lm( case.rate ~ casesTminus1.rate + casesTminus2.rate
-       , data = train
-       )
-
-summary(lmLog)
-```
-```{r fig.width=10, fig.height=30}
-
-output <- metricsFuncLM(model = lmLog)
-
-allMetrics <- allMetrics %>% left_join(
-    output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmLog")})
-    , by = "city"
-    )
-```
-
-## LME-Log + Testing Near Me
-
-```{r }
-lmeLogTest <- 
-  lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate + testingNearMe
-      , random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city
-      , data = train
-      )
-
-summary(lmeLogTest)
-
-output <- metricsFuncLME(model = lmeLogTest)
-
-allMetrics <- allMetrics %>% left_join(
-    output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmeLogTest")})
-    , by = "city"
-    )
-
-```
-
-
-
-## LME-Log weighted residual + Testing Near Me
-```{r}
-lmeLogWtTest <- 
-  lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate + testingNearMe
-      , random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city
-      , data = train
-      , weights = varPower(form = ~ fitted(.))
-      , control = lmeControl(maxIter = 1e4) 
-      )
-
-summary(lmeLogWtTest)
-```
-``` {r fig.width=10, fig.height=30}
-
-output <- metricsFuncLME(model = lmeLogWtTest)
-
-allMetrics <- allMetrics %>% left_join(
-    output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmeLogWtTest")})
-    , by = "city"
-    )
-```
-
-## Multiple Regression + Testing Near Me
-```{r}
-lmLogTest <- 
-  lm( case.rate ~ casesTminus1.rate + casesTminus2.rate + testingNearMe
-       , data = train
-       )
-
-summary(lmLogTest)
-```
-```{r fig.width=10, fig.height=30}
-
-output <- metricsFuncLM(model = lmLogTest)
-
-allMetrics <- allMetrics %>% left_join(
-    output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmLogTest")})
-    , by = "city"
-    )
-```
-
-## Metrics for Mar-Nov
-``` {r}
-
-allMetrics %>% select(city, starts_with("MAPE_7d")) %>%
-  arrange(as.character(city)) %>%
-  as.data.frame() %>%
-  format(scientific = F) %>%
-  print()
-
-```
-
-``` {r}
-
-allMetrics %>% select(city, starts_with("MAE_7d")) %>%
-  arrange(as.character(city)) %>% 
-  as.data.frame() %>%
-  print()
-
-```
-
-``` {r}
-
-allMetrics %>% select(city, starts_with("CP_7d")) %>%
-  arrange(as.character(city)) %>%
-  as.data.frame() %>%
-  print()
-
-```
-
-
-
-``` {r}
-
-allMetrics %>% select(city, starts_with("MAPE_14d")) %>%
-  arrange(as.character(city)) %>%
-  as.data.frame() %>%
-  format(scientific = F) %>%
-  print()
-
-```
-
-``` {r}
-
-allMetrics %>% select(city, starts_with("MAE_14d")) %>%
-  arrange(as.character(city)) %>% 
-  as.data.frame() %>%
-  print()
-
-```
-
-``` {r}
-
-allMetrics %>% select(city, starts_with("CP_14d")) %>%
-  arrange(as.character(city)) %>%
-  as.data.frame() %>%
-  print()
-
-```
-
-
-
 
 
 
 
 
 # Mar-Aug
-``` {r trainTest}
+```{r}
+weeklyCases <- read.csv('https://raw.githubusercontent.com/kentranz/socialMobilityCOVID/master/data/weeklyCases.csv')
 
 cutOff <- as.Date("2020-08-31")
+
+testRange <- 2
+```
+
+
+## LME
+```{r}
+
+modelName = 'lmeAug_' 
 
 train <- weeklyCases %>% 
   filter(weekNum > 3 & as.Date(date) < cutOff)
 
 
-test7 <- weeklyCases %>% 
-   filter(weekNum > 3 & as.Date(date) >= cutOff & weekNum <= 29)
+model <- lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate,
+    random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city,
+    data = train
+    )
+summary(model)
 
+# test to hold all date data points up to testRange
+test <- weeklyCases %>% 
+  filter(weekNum > 3 
+       & as.Date(date) > cutOff
+       & as.Date(date) <= (cutOff + testRange*7)
+       ) 
+
+
+# Predict one new observation at a time
+# For each new test, refit the model with actual observed Y
+for (i in 1:testRange)
+{
   
-test14 <- weeklyCases %>% 
-  filter(weekNum > 3 & as.Date(date) >= cutOff) %>%
+  if(i > 1)
+  {
+    train <- weeklyCases %>% 
+      filter(weekNum > 3 & as.Date(date) <= (cutOff - 1*7 + i*7))
+
+    model <- update(model, data = train)
+  }
   
-  # retained lag case rates for first week only, zero out the rest
-  mutate(
-    casesTminus2.rate = case_when(weekNum == 29 ~ 0, TRUE ~ casesTminus2.rate)
-  )
-
-
-nrow(train)
-nrow(test7)
-nrow(test14)
-```
-
-
-
-## LME
-``` {r}
-
-lme <- 
-  lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate,
-      random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city,
-      data = train
-      )
-
-summary(lme)
-
-```
-
-
-``` {r fig.width=10, fig.height=30}
-
-output <- metricsFuncLME(model = lme)
-
-allMetrics <- output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lme")})
-
-
-```
-
-## LME weighted
-
-```{r }
-lmeWt <- 
-  lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate
-      , random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city
-      , data = train
-      , weights = varPower(form = ~ fitted(.))
-      , control = lmeControl(maxIter = 1e4) 
-      )
-
-summary(lmeWt)
-
-output <- metricsFuncLME(model = lmeWt)
-
-allMetrics <- allMetrics %>% left_join(
-    output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmeWt")})
-    , by = "city"
-    )
-
-```
-
-
-
-## Multiple Regression
-```{r}
-lm <- 
-  lm( case.rate ~ casesTminus1.rate + casesTminus2.rate
-       , data = train
-       )
-
-summary(lm)
-```
-```{r fig.width=10, fig.height=30}
-
-output <- metricsFuncLM(model = lm)
-
-allMetrics <- allMetrics %>% left_join(
-    output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lm")})
-    , by = "city"
-    )
-```
-
-## LME + Testing Near Me
-
-```{r }
-lmeTest <- 
-  lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate + testingNearMe
-      , random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city
-      , data = train
-      )
-
-summary(lmeTest)
-
-output <- metricsFuncLME(model = lmeTest)
-
-allMetrics <- allMetrics %>% left_join(
-    output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmeTest")})
-    , by = "city"
-    )
-
-```
-
-## Multiple Regression + Testing Near Me
-```{r}
-lmTest <- 
-  lm( case.rate ~ casesTminus1.rate + casesTminus2.rate + testingNearMe
-       , data = train
-       )
-
-summary(lmTest)
-```
-```{r fig.width=10, fig.height=30}
-
-output <- metricsFuncLM(model = lmTest)
-
-allMetrics <- allMetrics %>% left_join(
-    output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmTest")})
-    , by = "city"
-    )
-```
-
-
-## Log-transformed
-
-```{r}
-
-train <- train %>% 
-  mutate(case.rate = log(case.rate)
-         , casesTminus1.rate = case_when(casesTminus1.rate != 0 ~ log(casesTminus1.rate)
-                                         , TRUE ~ 0.000000001)
-         , casesTminus2.rate = case_when(casesTminus2.rate != 0 ~ log(casesTminus2.rate)
-                                         , TRUE ~ 0.000000001)
-         )
-
-test7 <- test7  %>% 
-  mutate(case.rate = log(case.rate)
-         , casesTminus1.rate = case_when(casesTminus1.rate != 0 ~ log(casesTminus1.rate)
-                                         , TRUE ~ 0.000000001)
-         , casesTminus2.rate = case_when(casesTminus2.rate != 0 ~ log(casesTminus2.rate)
-                                         , TRUE ~ 0.000000001)
-         )
-         
-
-test14 <- test14  %>% 
-  mutate(case.rate = log(case.rate)
-         , casesTminus1.rate = case_when(casesTminus1.rate != 0 ~ log(casesTminus1.rate)
-                                         , TRUE ~ 0.000000001)
-         , casesTminus2.rate = case_when(casesTminus2.rate != 0 ~ log(casesTminus2.rate)
-                                         , TRUE ~ 0.000000001)
-         )
-```
-## LME-Log
-NOT CONVERGING - TBD
-
-<!-- ```{r } -->
-<!-- lmeLog <- -->
-<!--   lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate -->
-<!--       , random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city -->
-<!--       , data = train -->
-<!--       , control = lmeControl(maxIter = 1e8) -->
-<!--       ) -->
-
-<!-- summary(lmeLog) -->
-
-<!-- output <- metricsFuncLME(model = lmeLog) -->
-
-<!-- allMetrics <- allMetrics %>% left_join( -->
-<!--     output$performMetrics %>% -->
-<!--       rename_at(vars(-city), function(x) {paste0(x, "_lmeLog")}) -->
-<!--     , by = "city" -->
-<!--     ) -->
-
-<!-- ``` -->
-
-
-## LME-Log weighted residual
-```{r}
-lmeLogWt <- 
-  lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate
-      , random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city
-      , data = train
-      , weights = varPower(form = ~ fitted(.))
-      , control = lmeControl(maxIter = 1e4) 
-      )
-
-summary(lmeLogWt)
-```
-``` {r fig.width=10, fig.height=30}
-
-output <- metricsFuncLME(model = lmeLogWt)
-
-allMetrics <- allMetrics %>% left_join(
-    output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmeLogWt")})
-    , by = "city"
-    )
-```
-
-
-## Multiple Regression
-```{r}
-lmLog <- 
-  lm( case.rate ~ casesTminus1.rate + casesTminus2.rate
-       , data = train
-       )
-
-summary(lmLog)
-```
-```{r fig.width=10, fig.height=30}
-
-output <- metricsFuncLM(model = lmLog)
-
-allMetrics <- allMetrics %>% left_join(
-    output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmLog")})
-    , by = "city"
-    )
-```
-
-## LME-Log + Testing Near Me
-NOT CONVERGING
-
-<!-- ```{r } -->
-<!-- lmeLogTest <-  -->
-<!--   lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate + testingNearMe -->
-<!--       , random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city -->
-<!--       , data = train -->
-<!--       ) -->
-
-<!-- summary(lmeLogTest) -->
-
-<!-- output <- metricsFuncLME(model = lmeLogTest) -->
-
-<!-- allMetrics <- allMetrics %>% left_join( -->
-<!--     output$performMetrics %>% -->
-<!--       rename_at(vars(-city), function(x) {paste0(x, "_lmeLogTest")}) -->
-<!--     , by = "city" -->
-<!--     ) -->
-
-<!-- ``` -->
-
-
-
-## LME-Log weighted residual + Testing Near Me
-```{r}
-lmeLogWtTest <- 
-  lme(fixed = case.rate ~ casesTminus1.rate + casesTminus2.rate + testingNearMe
-      , random = ~ casesTminus1.rate + casesTminus2.rate - 1 | city
-      , data = train
-      , weights = varPower(form = ~ fitted(.))
-      , control = lmeControl(maxIter = 1e4) 
-      )
-
-summary(lmeLogWtTest)
-```
-``` {r fig.width=10, fig.height=30}
-
-output <- metricsFuncLME(model = lmeLogWtTest)
-
-allMetrics <- allMetrics %>% left_join(
-    output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmeLogWtTest")})
-    , by = "city"
-    )
-```
-
-## Multiple Regression + Testing Near Me
-```{r}
-lmLogTest <- 
-  lm( case.rate ~ casesTminus1.rate + casesTminus2.rate + testingNearMe
-       , data = train
-       )
-
-summary(lmLogTest)
-```
-```{r fig.width=10, fig.height=30}
-
-output <- metricsFuncLM(model = lmLogTest)
-
-allMetrics <- allMetrics %>% left_join(
-    output$performMetrics %>%
-      rename_at(vars(-city), function(x) {paste0(x, "_lmLogTest")})
-    , by = "city"
-    )
-```
-
-## Metrics for Mar-Aug
-``` {r}
-
-allMetrics %>% select(city, starts_with("MAPE_7d")) %>%
-  arrange(as.character(city)) %>%
-  as.data.frame() %>%
-  format(scientific = F) %>%
-  print()
-
-```
-
-``` {r}
-
-allMetrics %>% select(city, starts_with("MAE_7d")) %>%
-  arrange(as.character(city)) %>% 
-  as.data.frame() %>%
-  print()
-
-```
-
-``` {r}
-
-allMetrics %>% select(city, starts_with("CP_7d")) %>%
-  arrange(as.character(city)) %>%
-  as.data.frame() %>%
-  print()
-
-```
-
-
-
-``` {r}
-
-allMetrics %>% select(city, starts_with("MAPE_14d")) %>%
-  arrange(as.character(city)) %>%
-  as.data.frame() %>%
-  format(scientific = F) %>%
-  print()
-
-```
-
-``` {r}
-
-allMetrics %>% select(city, starts_with("MAE_14d")) %>%
-  arrange(as.character(city)) %>% 
-  as.data.frame() %>%
-  print()
-
-```
-
-``` {r}
-
-allMetrics %>% select(city, starts_with("CP_14d")) %>%
-  arrange(as.character(city)) %>%
-  as.data.frame() %>%
-  print()
+  # test to check correct training window
+  # print(i)
+  # print(max(as.Date(train$date)))
+  
+  # filter test set to calculate pred for only 1 day at a time
+  tempTest <- test %>% filter(weekNum > 3 
+       & as.Date(date) >= (cutOff + (i-1)*7)
+       & as.Date(date) <= (cutOff + i*7)
+       ) 
+  tempTest$pred <- predict(model, newdata = tempTest)
+  
+  # test to check for correct test window
+  # print(max(as.Date(tempTest$date)))
+  
+  # create design matrix
+  # [-2] drops response from formula
+  Designmat <- model.matrix(formula(model)[-2], tempTest)
+  
+  # compute XVX′ to get the variance-covariance matrix of the predictions
+  # extract the diagonal of this matrix to get variances of predictions
+  predvar <- diag(Designmat %*% vcov(model) %*% t(Designmat)) 
+  #results7$SE <- sqrt(predvar) 
+  tempTest$SE <- sqrt(predvar + model$sigma^2) # sigma is the estimated within-group error standard deviation
+  tempTest$lowerCI <- tempTest$pred - 1.96*tempTest$SE
+  tempTest$upperCI <- tempTest$pred + 1.96*tempTest$SE
+  
+  test %<>%
+    left_join(tempTest %>% select(city, date, pred, lowerCI, upperCI)
+              , by = c("date" = "date", "city" = "city"))
+   
+  if(i > 1)
+  {
+    test %<>% 
+      mutate(pred = coalesce(pred.x, pred.y)
+             , lowerCI = coalesce(lowerCI.x, lowerCI.y)
+             , upperCI = coalesce(upperCI.x, upperCI.y)
+             ) %>%
+      select(-pred.x, -pred.y
+             , -lowerCI.x, -lowerCI.y
+             , -upperCI.x, -upperCI.y)
+  }
+}
+
+
+
+# pull all metrics into one dataframe called dailyMetrics
+metrics <- test %>% 
+    group_by(city) %>%
+    summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+              , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+              , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+              ) %>%
+    left_join( test %>%
+                 group_by(city) %>%
+                 summarize(MAE = round(mean(abs(case.rate - pred)) , 2)
+                           , MAPE = round(mean(abs(case.rate - pred)/case.rate) , 2)
+                           , CP = round(sum(case.rate >= lowerCI & case.rate <= upperCI ) / n() , 2)
+                           )
+               , by = "city"
+               , suffix = c("_1w", "_2w")
+               ) %>%
+    rename_at(vars(-city), ~ paste0(modelName,.)) %>%
+    arrange(as.character(city))
+
+dailyMetrics <- metrics
 
 ```

@@ -26,7 +26,8 @@ weeklyCases <- all %>%
          ) %>%
   ungroup() %>%
   select(city, date, weekNum, case.rate, casesTminus1.rate, casesTminus2.rate) %>% 
-  left_join(googleTrends %>% select(Week, testingNearMe, city), by = c('date' = 'Week', 'city' = 'city'))
+  left_join(googleTrends %>% select(Week, testingNearMe, city), by = c('date' = 'Week', 'city' = 'city')) %>%
+  mutate(testingNearMeTminus1 = lag(testingNearMe, 1))
 
 
 
